@@ -37,6 +37,8 @@ export interface ScheduleRule {
   type: ScheduleType
   sourceText: string
   confidence?: number
+  note?: string
+  completed?: boolean
 }
 
 export interface Transaction {
@@ -72,6 +74,8 @@ export interface AppSettings {
   defaultClassReminderMinutes: number
   theme: 'system' | 'light' | 'dark'
   speechLanguage: 'zh-CN' | 'zh-SG' | 'en-SG'
+  displayName?: string
+  studentNumber?: string
   schemaVersion: number
 }
 

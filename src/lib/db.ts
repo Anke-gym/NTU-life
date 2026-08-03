@@ -48,6 +48,8 @@ export async function ensureSeedData() {
       defaultClassReminderMinutes: 30,
       theme: 'system',
       speechLanguage: 'zh-CN',
+      displayName: '',
+      studentNumber: '',
       schemaVersion: 2,
     })
   }
@@ -82,6 +84,8 @@ const ruleSchema = z.object({
   type: z.enum(['class', 'onlineTask']),
   sourceText: z.string(),
   confidence: z.number().optional(),
+  note: z.string().optional(),
+  completed: z.boolean().optional(),
 })
 const transactionSchema = z.object({
   id: z.string(),
@@ -114,6 +118,8 @@ const settingsSchema = z.object({
   defaultClassReminderMinutes: z.number(),
   theme: z.enum(['system', 'light', 'dark']),
   speechLanguage: z.enum(['zh-CN', 'zh-SG', 'en-SG']),
+  displayName: z.string().optional(),
+  studentNumber: z.string().optional(),
   schemaVersion: z.number(),
 })
 

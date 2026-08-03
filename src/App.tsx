@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { HashRouter, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
-import { CalendarDays, Home, Mic, ReceiptText, Settings, Upload, WalletCards } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { HashRouter, NavLink, Route, Routes } from 'react-router-dom'
+import { CalendarDays, Home, ReceiptText, Settings, WalletCards } from 'lucide-react'
 import { HomePage } from './pages/HomePage'
 import { SchedulePage } from './pages/SchedulePage'
 import { MoneyPage } from './pages/MoneyPage'
@@ -20,7 +20,6 @@ const tabs = [
 
 function AppShell() {
   const data = useData()
-  const navigate = useNavigate()
   const term = data.terms[0]
   const [week, setWeek] = useState(1)
   const [offline, setOffline] = useState(!navigator.onLine)
@@ -42,13 +41,6 @@ function AppShell() {
     }
   }, [])
 
-  const quickActions = useMemo(() => [
-    { label: '导入课表', icon: Upload, action: () => navigate('/schedule?import=1') },
-    { label: '记一笔', icon: WalletCards, action: () => navigate('/money?new=1') },
-    { label: '语音记录', icon: Mic, action: () => navigate('/agenda?voice=1') },
-    { label: '新建日程', icon: ReceiptText, action: () => navigate('/agenda?new=1') },
-  ], [navigate])
-
   if (!data.ready || !term) return <main className="loading">正在准备本地数据...</main>
 
   return (
@@ -60,7 +52,7 @@ function AppShell() {
       )}
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<HomePage data={data} term={term} week={week} setWeek={setWeek} quickActions={quickActions} />} />
+          <Route path="/" element={<HomePage data={data} term={term} week={week} setWeek={setWeek} />} />
           <Route path="/schedule" element={<SchedulePage data={data} term={term} week={week} setWeek={setWeek} />} />
           <Route path="/money" element={<MoneyPage data={data} />} />
           <Route path="/agenda" element={<AgendaPage data={data} />} />

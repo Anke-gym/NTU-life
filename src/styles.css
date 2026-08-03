@@ -229,6 +229,20 @@ h3 { font-size: 17px; }
   place-items: center;
   font-size: 14px;
 }
+.calendar-header .day-heading {
+  align-content: center;
+  gap: 1px;
+  line-height: 1.1;
+}
+.calendar-header .day-heading span,
+.calendar-header .day-heading small {
+  display: block;
+}
+.calendar-header .day-heading small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
 .calendar-grid {
   position: relative;
   display: grid;
@@ -236,6 +250,7 @@ h3 { font-size: 17px; }
   background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 39px, var(--line) 40px);
 }
 .time-axis {
+  position: relative;
   display: grid;
   grid-template-rows: repeat(15, 40px);
   border-right: 1px solid var(--line);
@@ -245,6 +260,27 @@ h3 { font-size: 17px; }
   text-align: center;
   color: var(--muted);
   font-size: 11px;
+}
+.half-time-label {
+  position: absolute;
+  right: 4px;
+  top: calc(var(--top) - 8px);
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: var(--blue);
+  color: white !important;
+  font-size: 10px !important;
+  line-height: 1.2;
+}
+.half-hour-line {
+  position: absolute;
+  left: 48px;
+  right: 0;
+  top: var(--top);
+  height: 0;
+  border-top: 2px solid rgba(0, 122, 255, 0.72);
+  pointer-events: none;
+  z-index: 1;
 }
 .day-column {
   border-right: 1px solid var(--line);
@@ -267,6 +303,7 @@ h3 { font-size: 17px; }
   padding: 5px;
   text-align: left;
   line-height: 1.15;
+  z-index: 2;
 }
 .calendar-course strong, .calendar-course span, .calendar-course small, .calendar-course em {
   display: block;
@@ -277,6 +314,29 @@ h3 { font-size: 17px; }
 .calendar-course strong { font-size: 12px; }
 .calendar-course span, .calendar-course small, .calendar-course em { font-size: 10px; }
 .calendar-course em { color: var(--blue); font-style: normal; }
+
+.course-summary {
+  margin-top: 12px;
+}
+.course-legend {
+  display: grid;
+  gap: 8px;
+}
+.course-legend span {
+  display: grid;
+  grid-template-columns: 14px auto 1fr;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+}
+.course-legend i {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+.course-legend b {
+  color: var(--text);
+}
 
 .course-card {
   border-left: 5px solid var(--course);
@@ -366,6 +426,53 @@ textarea { resize: vertical; }
 .no { color: var(--red); }
 .button-column { display: grid; gap: 10px; }
 .full-width { width: 100%; margin-top: 10px; }
+
+.range-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.range-tabs button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 800;
+}
+.range-tabs button.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: white;
+}
+.daily-summary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: rgba(0, 122, 255, 0.08);
+}
+.daily-summary > strong {
+  display: block;
+  margin-bottom: 8px;
+}
+.daily-summary p {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 6px 10px;
+  margin-bottom: 8px;
+}
+.daily-summary p:last-child {
+  margin-bottom: 0;
+}
+.daily-summary span {
+  grid-row: span 3;
+  color: var(--muted);
+  font-weight: 800;
+}
+.daily-summary b {
+  font-size: 13px;
+}
 
 .preset-grid {
   display: grid;
@@ -511,6 +618,15 @@ textarea { resize: vertical; }
   }
   .calendar-course strong { font-size: 11px; }
   .calendar-course em { display: none; }
+  .calendar-header .day-heading { font-size: 12px; }
+  .calendar-header .day-heading small { font-size: 10px; }
+  .half-hour-line { left: 42px; }
+  .half-time-label {
+    right: 2px;
+    font-size: 9px !important;
+  }
   .pie-layout { grid-template-columns: 1fr; }
   .pie-chart { justify-self: center; }
+  .daily-summary p { grid-template-columns: 1fr; }
+  .daily-summary span { grid-row: auto; }
 }

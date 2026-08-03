@@ -32,8 +32,8 @@ test('mobile core flow', async ({ page }) => {
   await page.getByRole('button', { name: '交通' }).click()
   await page.getByLabel('金额').fill('8')
   await page.getByRole('button', { name: '保存' }).click()
-  await expect(page.getByText('本周支出')).toBeVisible()
-  await page.getByText('最近交易').click()
+  await expect(page.getByText('今天支出')).toBeVisible()
+  await expect(page.getByText('汇总')).toBeVisible()
   await expect(page.getByText('交通').first()).toBeVisible()
 
   await page.getByRole('link', { name: /日程/ }).click()

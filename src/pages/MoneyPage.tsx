@@ -1,5 +1,15 @@
 import { Plus } from 'lucide-react'
-import { endOfWeek, isWithinInterval, parseISO, startOfMonth, startOfWeek } from 'date-fns'
+import {
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  isWithinInterval,
+  parseISO,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+} from 'date-fns'
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -8,6 +18,14 @@ import { makeTransactionDraft } from '../lib/naturalLanguage'
 import type { Transaction } from '../lib/types'
 import type { AppData } from '../lib/useData'
 
+type MoneyRangeKey = 'today' | 'yesterday' | 'week' | 'month'
+
+const rangeOptions: Array<{ key: MoneyRangeKey; label: string }> = [
+  { key: 'today', label: '今天' },
+  { key: 'yesterday', label: '昨天' },
+  { key: 'week', label: '本周' },
+  { key: 'month', label: '本月' },
+]
 const categories = ['吃饭', '交通', '饮料', '生活用品', '学习资料', '房租水电', '医疗', '其他']
 const currencies = [
   { value: 'CNY', label: '人民币', symbol: '¥' },
@@ -21,28 +39,38 @@ export function MoneyPage({ data }: { data: AppData }) {
   const [quickCategory, setQuickCategory] = useState<string | undefined>()
   const [voiceText, setVoiceText] = useState('')
   const [deleting, setDeleting] = useState<Transaction | undefined>()
+  const [rangeKey, setRangeKey] = useState<MoneyRangeKey>('today')
   const [speechSupported] = useState(() => 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
 
   useEffect(() => { if (params.get('new')) setEditing(newTransaction()) }, [params])
 
   const stats = useMemo(() => {
-    const now = new Date()
-    const weekRange = { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) }
-    const weekItems = data.transactions.filter((item) => isWithinInterval(parseISO(item.occurredAt), weekRange))
-    const monthItems = data.transactions.filter((item) => parseISO(item.occurredAt) >= startOfMonth(now))
-    const sum = (items: Transaction[], direction: Transaction['direction']) => items.filter((item) => item.direction === direction).reduce((total, item) => total + item.amountCents, 0)
-    const monthlyByCategory = categories.map((category, index) => ({
+    const range = getRange(rangeKey)
+    const filtered = data.transactions.filter((item) => isWithinInterval(parseISO(item.occurredAt), range))
+    const income = sum(filtered, 'income')
+    const expense = sum(filtered, 'expense')
+    const byCurrency = currencies.map((currency) => {
+      const items = filtered.filter((item) => item.currency === currency.value)
+      return {
+        currency: currency.value,
+        income: sum(items, 'income'),
+        expense: sum(items, 'expense'),
+      }
+    }).filter((item) => item.income || item.expense)
+    const categoryItems = categories.map((category, index) => ({
       category,
       color: pieColors[index],
-      amount: monthItems.filter((item) => item.direction === 'expense' && item.category === category).reduce((total, item) => total + item.amountCents, 0),
+      amount: filtered.filter((item) => item.direction === 'expense' && item.category === category).reduce((total, item) => total + item.amountCents, 0),
     })).filter((item) => item.amount > 0)
     return {
-      weekIncome: sum(weekItems, 'income'),
-      weekExpense: sum(weekItems, 'expense'),
-      monthlyByCategory,
-      monthExpense: monthlyByCategory.reduce((total, item) => total + item.amount, 0),
+      filtered,
+      income,
+      expense,
+      byCurrency,
+      categoryItems,
+      categoryTotal: categoryItems.reduce((total, item) => total + item.amount, 0),
     }
-  }, [data.transactions])
+  }, [data.transactions, rangeKey])
 
   async function saveVoice() {
     if (!voiceText.trim()) return
@@ -53,7 +81,27 @@ export function MoneyPage({ data }: { data: AppData }) {
 
   return (
     <div className="page">
-      <header className="page-header"><h1>记账</h1><button className="icon-button" type="button" aria-label="新增账目" onClick={() => setEditing(newTransaction())}><Plus /></button></header>
+      <header className="page-header">
+        <h1>记账</h1>
+        <button className="icon-button" type="button" aria-label="新增账目" onClick={() => setEditing(newTransaction())}><Plus /></button>
+      </header>
+      <div className="range-tabs" role="tablist" aria-label="统计时间范围">
+        {rangeOptions.map((option) => (
+          <button
+            className={rangeKey === option.key ? 'active' : ''}
+            type="button"
+            key={option.key}
+            onClick={() => setRangeKey(option.key)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <section className="metric-grid">
+        <div className="metric"><span>{rangeLabel(rangeKey)}收入</span><strong>{formatMoney(stats.income)}</strong></div>
+        <div className="metric"><span>{rangeLabel(rangeKey)}支出</span><strong>{formatMoney(stats.expense)}</strong></div>
+        <div className="metric"><span>{rangeLabel(rangeKey)}结余</span><strong>{formatMoney(stats.income - stats.expense)}</strong></div>
+      </section>
       <section className="panel">
         <h2>快捷消费</h2>
         <div className="preset-grid">
@@ -62,21 +110,16 @@ export function MoneyPage({ data }: { data: AppData }) {
           ))}
         </div>
       </section>
-      <section className="metric-grid">
-        <div className="metric"><span>本周收入</span><strong>{formatMoney(stats.weekIncome)}</strong></div>
-        <div className="metric"><span>本周支出</span><strong>{formatMoney(stats.weekExpense)}</strong></div>
-        <div className="metric"><span>本周结余</span><strong>{formatMoney(stats.weekIncome - stats.weekExpense)}</strong></div>
-      </section>
       <section className="panel">
-        <h2>本月消费占比</h2>
-        {stats.monthlyByCategory.length ? (
+        <h2>{rangeLabel(rangeKey)}消费占比</h2>
+        {stats.categoryItems.length ? (
           <div className="pie-layout">
-            <div className="pie-chart" style={{ background: pieBackground(stats.monthlyByCategory, stats.monthExpense) }} aria-label="本月分类消费饼图" />
+            <div className="pie-chart" style={{ background: pieBackground(stats.categoryItems, stats.categoryTotal) }} aria-label={`${rangeLabel(rangeKey)}分类消费饼图`} />
             <div className="pie-legend">
-              {stats.monthlyByCategory.map((item) => <p key={item.category}><i style={{ background: item.color }} />{item.category}<b>{Math.round(item.amount / stats.monthExpense * 100)}%</b></p>)}
+              {stats.categoryItems.map((item) => <p key={item.category}><i style={{ background: item.color }} />{item.category}<b>{Math.round(item.amount / stats.categoryTotal * 100)}%</b></p>)}
             </div>
           </div>
-        ) : <p className="empty">本月暂无支出记录。</p>}
+        ) : <p className="empty">{rangeLabel(rangeKey)}暂无支出记录。</p>}
       </section>
       <section className="panel">
         <h2>快速记录</h2>
@@ -84,15 +127,52 @@ export function MoneyPage({ data }: { data: AppData }) {
         <label className="field"><span>文字或听写</span><input value={voiceText} onChange={(event) => setVoiceText(event.target.value)} placeholder="今天午饭花了12.5块" /></label>
         <button className="button primary" type="button" onClick={() => void saveVoice()}>生成账目</button>
       </section>
-      <details className="panel compact-list">
-        <summary>最近交易</summary>
-        {data.transactions.slice(0, 12).map((item) => <article className="list-row" key={item.id}><div><strong>{item.note || item.category}</strong><span>{new Date(item.occurredAt).toLocaleString()} · {item.category} · {item.currency}</span></div><b className={item.direction}>{item.direction === 'income' ? '+' : '-'}{formatMoney(item.amountCents, item.currency)}</b><button className="button ghost" type="button" onClick={() => setEditing(item)}>编辑</button><button className="button ghost danger-text" type="button" onClick={() => setDeleting(item)}>删除</button></article>)}
+      <details className="panel compact-list" open>
+        <summary>{rangeLabel(rangeKey)}交易</summary>
+        <div className="daily-summary">
+          <strong>汇总</strong>
+          {stats.byCurrency.length ? stats.byCurrency.map((item) => (
+            <p key={item.currency}>
+              <span>{item.currency}</span>
+              <b>收入 {formatMoney(item.income, item.currency)}</b>
+              <b>支出 {formatMoney(item.expense, item.currency)}</b>
+              <b>结余 {formatMoney(item.income - item.expense, item.currency)}</b>
+            </p>
+          )) : <p><span>暂无交易</span></p>}
+        </div>
+        {stats.filtered.length ? stats.filtered.map((item) => (
+          <article className="list-row" key={item.id}>
+            <div><strong>{item.note || item.category}</strong><span>{new Date(item.occurredAt).toLocaleString()} · {item.category} · {item.currency}</span></div>
+            <b className={item.direction}>{item.direction === 'income' ? '+' : '-'}{formatMoney(item.amountCents, item.currency)}</b>
+            <button className="button ghost" type="button" onClick={() => setEditing(item)}>编辑</button>
+            <button className="button ghost danger-text" type="button" onClick={() => setDeleting(item)}>删除</button>
+          </article>
+        )) : <p className="empty">这个时间范围内没有明细。</p>}
       </details>
       {quickCategory && <QuickExpense category={quickCategory} onClose={() => setQuickCategory(undefined)} onDone={data.reload} />}
       {editing && <MoneyEditor item={editing} onClose={() => setEditing(undefined)} onDone={data.reload} />}
       <ConfirmDialog open={Boolean(deleting)} title="删除账目" destructive onCancel={() => setDeleting(undefined)} onConfirm={() => { if (deleting) void db.transactions.delete(deleting.id).then(data.reload); setDeleting(undefined) }}>删除后无法撤销。</ConfirmDialog>
     </div>
   )
+}
+
+function getRange(key: MoneyRangeKey) {
+  const now = new Date()
+  if (key === 'yesterday') {
+    const yesterday = subDays(now, 1)
+    return { start: startOfDay(yesterday), end: endOfDay(yesterday) }
+  }
+  if (key === 'week') return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) }
+  if (key === 'month') return { start: startOfMonth(now), end: endOfMonth(now) }
+  return { start: startOfDay(now), end: endOfDay(now) }
+}
+
+function rangeLabel(key: MoneyRangeKey) {
+  return rangeOptions.find((item) => item.key === key)?.label ?? '今天'
+}
+
+function sum(items: Transaction[], direction: Transaction['direction']) {
+  return items.filter((item) => item.direction === direction).reduce((total, item) => total + item.amountCents, 0)
 }
 
 function newTransaction(category = '吃饭', currency = 'SGD'): Transaction {

@@ -3,7 +3,7 @@ import { useState, type CSSProperties, type Dispatch, type FormEvent, type SetSt
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ImportPanel } from '../components/ImportPanel'
 import { db } from '../lib/db'
-import { expandRules, onlineTasks, weekdays, weekPeriod } from '../lib/term'
+import { dateForWeekday, expandRules, onlineTasks, weekdays, weekPeriod } from '../lib/term'
 import type { AcademicTerm, Course, CourseOccurrence, ScheduleRule, Weekday } from '../lib/types'
 import type { AppData } from '../lib/useData'
 
@@ -29,6 +29,8 @@ export function SchedulePage({
   const occurrences = expandRules(term, data.courses, data.rules, week)
   const tasks = onlineTasks(data.courses, data.rules, week)
   const period = weekPeriod(term, week)
+  const halfHourMarkers = uniqueHalfHourMarkers(occurrences)
+  const weekCourses = data.courses.filter((course) => data.rules.some((rule) => rule.courseId === course.id && rule.weeks.includes(week)))
 
   async function toggleTask(rule: ScheduleRule) {
     await db.scheduleRules.put({ ...rule, completed: !rule.completed })
@@ -80,13 +82,20 @@ export function SchedulePage({
       <section className="calendar-board" aria-label={`第 ${week} 周课表`}>
         <div className="calendar-header" style={{ gridTemplateColumns: '48px repeat(6, minmax(70px, 1fr))' }}>
           <span />
-          {weekdays.slice(0, 6).map((day) => <strong key={day.value}>{day.short}</strong>)}
+          {weekdays.slice(0, 6).map((day) => (
+            <strong className="day-heading" key={day.value}>
+              <span>周{day.short}</span>
+              <small>{formatHeaderDate(dateForWeekday(term, week, day.value))}</small>
+            </strong>
+          ))}
         </div>
         <div className="calendar-grid" style={{ height: `${timeLabels.length * rowHeight}px` }}>
           <div className="time-axis">
             {timeLabels.map((time) => <span key={time}>{time}</span>)}
+            {halfHourMarkers.map((minute) => <span className="half-time-label" style={{ '--top': `${markerTop(minute)}px` } as CSSProperties} key={minute}>{formatMinute(minute)}</span>)}
           </div>
           {weekdays.slice(0, 6).map((day) => <div className="day-column" key={day.value} />)}
+          {halfHourMarkers.map((minute) => <div className="half-hour-line" style={{ '--top': `${markerTop(minute)}px` } as CSSProperties} key={minute} />)}
           {occurrences.map((item) => (
             <CalendarCourse
               key={item.id}
@@ -96,6 +105,20 @@ export function SchedulePage({
           ))}
         </div>
       </section>
+      {weekCourses.length > 0 && (
+        <section className="course-summary panel">
+          <h2>本周课程颜色</h2>
+          <div className="course-legend">
+            {weekCourses.map((course) => (
+              <span key={course.id}>
+                <i style={{ background: course.color }} />
+                <b>{course.code}</b>
+                {course.title}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
       {!data.courses.length && <p className="empty panel">还没有课表。点击右上角“导入”或“+”开始添加。</p>}
       {importOpen && (
         <div className="sheet">
@@ -143,6 +166,27 @@ function CalendarCourse({ occurrence, onClick }: { occurrence: CourseOccurrence;
 function toMinutes(time: string) {
   const [hour, minute] = time.split(':').map(Number)
   return hour * 60 + minute
+}
+
+function markerTop(minute: number) {
+  return Math.max(0, minute - dayStartMinutes) / 60 * rowHeight
+}
+
+function formatMinute(minute: number) {
+  return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
+}
+
+function formatHeaderDate(date: string) {
+  const [, month, day] = date.split('-')
+  return `${month}/${day}`
+}
+
+function uniqueHalfHourMarkers(occurrences: CourseOccurrence[]) {
+  return [...new Set(occurrences.flatMap((item) => [item.rule.startTime, item.rule.endTime])
+    .filter((time): time is string => Boolean(time))
+    .map(toMinutes)
+    .filter((minute) => minute % 60 !== 0 && minute >= dayStartMinutes && minute <= dayEndMinutes))]
+    .sort((a, b) => a - b)
 }
 
 function newCourse(): Course {

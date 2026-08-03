@@ -1,4 +1,4 @@
-import { Download, Plus } from 'lucide-react'
+import { Download, ExternalLink, Plus } from 'lucide-react'
 import { useState, type CSSProperties, type Dispatch, type FormEvent, type SetStateAction } from 'react'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ImportPanel } from '../components/ImportPanel'
@@ -30,7 +30,6 @@ export function SchedulePage({
   const tasks = onlineTasks(data.courses, data.rules, week)
   const period = weekPeriod(term, week)
   const halfHourMarkers = uniqueHalfHourMarkers(occurrences)
-  const weekCourses = data.courses.filter((course) => data.rules.some((rule) => rule.courseId === course.id && rule.weeks.includes(week)))
 
   async function toggleTask(rule: ScheduleRule) {
     await db.scheduleRules.put({ ...rule, completed: !rule.completed })
@@ -105,11 +104,11 @@ export function SchedulePage({
           ))}
         </div>
       </section>
-      {weekCourses.length > 0 && (
+      {data.courses.length > 0 && (
         <section className="course-summary panel">
-          <h2>本周课程颜色</h2>
+          <h2>我的课程</h2>
           <div className="course-legend">
-            {weekCourses.map((course) => (
+            {data.courses.map((course) => (
               <span key={course.id}>
                 <i style={{ background: course.color }} />
                 <b>{course.code}</b>
@@ -189,6 +188,18 @@ function uniqueHalfHourMarkers(occurrences: CourseOccurrence[]) {
     .sort((a, b) => a - b)
 }
 
+function ntuMapsUrl(venue: string) {
+  return `https://use.mazemap.com/?config=ntu-sg&search=${encodeURIComponent(normalizeVenueForMap(venue))}`
+}
+
+function normalizeVenueForMap(venue: string) {
+  const clean = venue.trim()
+  const aliases: Record<string, string> = {
+    'LF LT': 'Lee Foundation Lecture Theatre',
+  }
+  return aliases[clean.toUpperCase()] ?? clean
+}
+
 function newCourse(): Course {
   const now = new Date().toISOString()
   return { id: crypto.randomUUID(), code: '', title: '', lecturer: '', aus: 3, color: '#2f80ed', createdAt: now, updatedAt: now }
@@ -255,6 +266,11 @@ function CourseEditor({
         <label className="field"><span>星期</span><select value={ruleForm.weekday} onChange={(event) => setRuleForm({ ...ruleForm, weekday: Number(event.target.value) as Weekday })}>{weekdays.slice(0, 6).map((day) => <option key={day.value} value={day.value}>{day.label}</option>)}</select></label>
         <div className="form-grid"><label className="field"><span>开始</span><input type="time" value={ruleForm.startTime} onChange={(event) => setRuleForm({ ...ruleForm, startTime: event.target.value })} /></label><label className="field"><span>结束</span><input type="time" value={ruleForm.endTime} onChange={(event) => setRuleForm({ ...ruleForm, endTime: event.target.value })} /></label></div>
         <label className="field"><span>地点</span><input value={ruleForm.venue} onChange={(event) => setRuleForm({ ...ruleForm, venue: event.target.value })} /></label>
+        {ruleForm.venue.trim() && (
+          <a className="map-link" href={ntuMapsUrl(ruleForm.venue)} target="_blank" rel="noreferrer">
+            <ExternalLink size={17} />打开 NTU Maps
+          </a>
+        )}
         <label className="field"><span>课程备注</span><textarea rows={3} value={ruleForm.note} onChange={(event) => setRuleForm({ ...ruleForm, note: event.target.value })} placeholder="例如：带电脑、课前看视频、作业截止提醒" /></label>
         <div className="dialog-actions">
           {rule && <button className="button ghost danger-text" type="button" onClick={() => onDelete(rule)}>删除</button>}

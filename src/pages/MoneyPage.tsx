@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import {
   endOfDay,
   endOfMonth,
@@ -8,7 +8,6 @@ import {
   startOfDay,
   startOfMonth,
   startOfWeek,
-  subDays,
 } from 'date-fns'
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -18,31 +17,32 @@ import { makeTransactionDraft } from '../lib/naturalLanguage'
 import type { Transaction } from '../lib/types'
 import type { AppData } from '../lib/useData'
 
-type MoneyRangeKey = 'today' | 'yesterday' | 'week' | 'month'
+type MoneyRangeKey = 'today' | 'week' | 'month'
 
+const defaultCategories = ['吃饭', '交通', '饮料', '生活用品', '学习资料', '房租水电', '医疗', '其他']
 const rangeOptions: Array<{ key: MoneyRangeKey; label: string }> = [
   { key: 'today', label: '今天' },
-  { key: 'yesterday', label: '昨天' },
   { key: 'week', label: '本周' },
   { key: 'month', label: '本月' },
 ]
-const categories = ['吃饭', '交通', '饮料', '生活用品', '学习资料', '房租水电', '医疗', '其他']
 const currencies = [
   { value: 'CNY', label: '人民币', symbol: '¥' },
   { value: 'SGD', label: '新币', symbol: 'S$' },
 ] as const
-const pieColors = ['#007aff', '#34c759', '#ff9500', '#af52de', '#ff3b30', '#5ac8fa', '#5856d6', '#8e8e93']
+const pieColors = ['#007aff', '#34c759', '#ff9500', '#af52de', '#ff3b30', '#5ac8fa', '#5856d6', '#8e8e93', '#ffcc00', '#30d158']
 
 export function MoneyPage({ data }: { data: AppData }) {
   const [params] = useSearchParams()
   const [editing, setEditing] = useState<Transaction | undefined>()
   const [quickCategory, setQuickCategory] = useState<string | undefined>()
   const [voiceText, setVoiceText] = useState('')
+  const [newCategory, setNewCategory] = useState('')
   const [deleting, setDeleting] = useState<Transaction | undefined>()
   const [rangeKey, setRangeKey] = useState<MoneyRangeKey>('today')
   const [speechSupported] = useState(() => 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+  const categoryOptions = data.settings?.moneyCategories?.length ? data.settings.moneyCategories : defaultCategories
 
-  useEffect(() => { if (params.get('new')) setEditing(newTransaction()) }, [params])
+  useEffect(() => { if (params.get('new')) setEditing(newTransaction(categoryOptions[0] ?? '其他')) }, [params, categoryOptions])
 
   const stats = useMemo(() => {
     const range = getRange(rangeKey)
@@ -57,9 +57,10 @@ export function MoneyPage({ data }: { data: AppData }) {
         expense: sum(items, 'expense'),
       }
     }).filter((item) => item.income || item.expense)
-    const categoryItems = categories.map((category, index) => ({
+    const categoryUniverse = [...new Set([...categoryOptions, ...filtered.map((item) => item.category)])]
+    const categoryItems = categoryUniverse.map((category, index) => ({
       category,
-      color: pieColors[index],
+      color: pieColors[index % pieColors.length],
       amount: filtered.filter((item) => item.direction === 'expense' && item.category === category).reduce((total, item) => total + item.amountCents, 0),
     })).filter((item) => item.amount > 0)
     return {
@@ -70,7 +71,7 @@ export function MoneyPage({ data }: { data: AppData }) {
       categoryItems,
       categoryTotal: categoryItems.reduce((total, item) => total + item.amount, 0),
     }
-  }, [data.transactions, rangeKey])
+  }, [categoryOptions, data.transactions, rangeKey])
 
   async function saveVoice() {
     if (!voiceText.trim()) return
@@ -79,20 +80,33 @@ export function MoneyPage({ data }: { data: AppData }) {
     await data.reload()
   }
 
+  async function saveCategories(nextCategories: string[]) {
+    if (!data.settings) return
+    await db.settings.put({ ...data.settings, moneyCategories: nextCategories })
+    await data.reload()
+  }
+
+  async function addCategory(event: FormEvent) {
+    event.preventDefault()
+    const clean = newCategory.trim()
+    if (!clean || categoryOptions.includes(clean)) return
+    await saveCategories([...categoryOptions, clean])
+    setNewCategory('')
+  }
+
+  async function removeCategory(category: string) {
+    await saveCategories(categoryOptions.filter((item) => item !== category))
+  }
+
   return (
     <div className="page">
       <header className="page-header">
         <h1>记账</h1>
-        <button className="icon-button" type="button" aria-label="新增账目" onClick={() => setEditing(newTransaction())}><Plus /></button>
+        <button className="icon-button" type="button" aria-label="新增账目" onClick={() => setEditing(newTransaction(categoryOptions[0] ?? '其他'))}><Plus /></button>
       </header>
       <div className="range-tabs" role="tablist" aria-label="统计时间范围">
         {rangeOptions.map((option) => (
-          <button
-            className={rangeKey === option.key ? 'active' : ''}
-            type="button"
-            key={option.key}
-            onClick={() => setRangeKey(option.key)}
-          >
+          <button className={rangeKey === option.key ? 'active' : ''} type="button" key={option.key} onClick={() => setRangeKey(option.key)}>
             {option.label}
           </button>
         ))}
@@ -103,12 +117,22 @@ export function MoneyPage({ data }: { data: AppData }) {
         <div className="metric"><span>{rangeLabel(rangeKey)}结余</span><strong>{formatMoney(stats.income - stats.expense)}</strong></div>
       </section>
       <section className="panel">
-        <h2>快捷消费</h2>
+        <div className="panel-title">
+          <h2>快捷消费</h2>
+          <span className="muted">可自定义</span>
+        </div>
         <div className="preset-grid">
-          {categories.filter((item) => item !== '其他').map((category) => (
-            <button className="preset-button" type="button" key={category} onClick={() => setQuickCategory(category)}>{category}</button>
+          {categoryOptions.map((category) => (
+            <div className="preset-edit" key={category}>
+              <button className="preset-button" type="button" onClick={() => setQuickCategory(category)}>{category}</button>
+              <button className="mini-remove" type="button" aria-label={`删除${category}`} onClick={() => void removeCategory(category)}><X size={15} /></button>
+            </div>
           ))}
         </div>
+        <form className="inline-add" onSubmit={(event) => void addCategory(event)}>
+          <input value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="新增快捷项，例如咖啡" />
+          <button className="button ghost" type="submit">添加</button>
+        </form>
       </section>
       <section className="panel">
         <h2>{rangeLabel(rangeKey)}消费占比</h2>
@@ -150,7 +174,7 @@ export function MoneyPage({ data }: { data: AppData }) {
         )) : <p className="empty">这个时间范围内没有明细。</p>}
       </details>
       {quickCategory && <QuickExpense category={quickCategory} onClose={() => setQuickCategory(undefined)} onDone={data.reload} />}
-      {editing && <MoneyEditor item={editing} onClose={() => setEditing(undefined)} onDone={data.reload} />}
+      {editing && <MoneyEditor item={editing} categories={categoryOptions} onClose={() => setEditing(undefined)} onDone={data.reload} />}
       <ConfirmDialog open={Boolean(deleting)} title="删除账目" destructive onCancel={() => setDeleting(undefined)} onConfirm={() => { if (deleting) void db.transactions.delete(deleting.id).then(data.reload); setDeleting(undefined) }}>删除后无法撤销。</ConfirmDialog>
     </div>
   )
@@ -158,10 +182,6 @@ export function MoneyPage({ data }: { data: AppData }) {
 
 function getRange(key: MoneyRangeKey) {
   const now = new Date()
-  if (key === 'yesterday') {
-    const yesterday = subDays(now, 1)
-    return { start: startOfDay(yesterday), end: endOfDay(yesterday) }
-  }
   if (key === 'week') return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) }
   if (key === 'month') return { start: startOfMonth(now), end: endOfMonth(now) }
   return { start: startOfDay(now), end: endOfDay(now) }
@@ -220,8 +240,9 @@ function QuickExpense({ category, onClose, onDone }: { category: string; onClose
   )
 }
 
-function MoneyEditor({ item, onClose, onDone }: { item: Transaction; onClose: () => void; onDone: () => Promise<void> }) {
+function MoneyEditor({ item, categories, onClose, onDone }: { item: Transaction; categories: string[]; onClose: () => void; onDone: () => Promise<void> }) {
   const [form, setForm] = useState(item)
+  const categoryOptions = categories.includes(form.category) ? categories : [...categories, form.category]
   async function submit(event: FormEvent) {
     event.preventDefault()
     await db.transactions.put({ ...form, amountCents: Math.round(form.amountCents), updatedAt: new Date().toISOString() })
@@ -234,7 +255,7 @@ function MoneyEditor({ item, onClose, onDone }: { item: Transaction; onClose: ()
       <label className="field"><span>类型</span><select value={form.direction} onChange={(event) => setForm({ ...form, direction: event.target.value as Transaction['direction'] })}><option value="expense">支出</option><option value="income">收入</option></select></label>
       <CurrencyPicker value={form.currency as 'CNY' | 'SGD'} onChange={(currency) => setForm({ ...form, currency })} />
       <label className="field"><span>金额</span><input required inputMode="decimal" value={(form.amountCents / 100).toString()} onChange={(event) => setForm({ ...form, amountCents: Math.round(Number(event.target.value || 0) * 100) })} /></label>
-      <label className="field"><span>分类</span><select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
+      <label className="field"><span>分类</span><select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{categoryOptions.map((category) => <option key={category}>{category}</option>)}</select></label>
       <label className="field"><span>日期时间</span><input type="datetime-local" value={form.occurredAt.slice(0, 16)} onChange={(event) => setForm({ ...form, occurredAt: new Date(event.target.value).toISOString() })} /></label>
       <label className="field"><span>备注</span><input value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} /></label>
       <div className="dialog-actions"><button className="button ghost" type="button" onClick={onClose}>取消</button><button className="button primary" type="submit">保存</button></div>

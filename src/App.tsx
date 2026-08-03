@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { HashRouter, NavLink, Route, Routes } from 'react-router-dom'
 import { CalendarDays, Home, ReceiptText, Settings, WalletCards } from 'lucide-react'
 import { HomePage } from './pages/HomePage'
@@ -10,12 +10,31 @@ import { useData } from './lib/useData'
 import { getCurrentWeek } from './lib/term'
 import './styles.css'
 
-const tabs = [
-  { to: '/', label: '首页', icon: Home },
-  { to: '/schedule', label: '课表', icon: CalendarDays },
-  { to: '/money', label: '记账', icon: WalletCards },
-  { to: '/agenda', label: '日程', icon: ReceiptText },
-  { to: '/settings', label: '设置', icon: Settings },
+const shellCopy = {
+  zh: {
+    loading: '正在准备本地数据...',
+    offline: '离线模式：已缓存的课表、账目和日程仍可使用。',
+    update: '新版本可用，保存当前编辑后可立即更新。',
+    updateNow: '立即更新',
+    nav: '主要导航',
+    tabs: ['首页', '课表', '记账', '日程', '设置'],
+  },
+  en: {
+    loading: 'Preparing local data...',
+    offline: 'Offline mode: cached schedules, transactions, and agenda remain available.',
+    update: 'A new version is available. Save your current edits, then update.',
+    updateNow: 'Update now',
+    nav: 'Main navigation',
+    tabs: ['Home', 'Schedule', 'Money', 'Agenda', 'Settings'],
+  },
+}
+
+const tabDefs = [
+  { to: '/', icon: Home },
+  { to: '/schedule', icon: CalendarDays },
+  { to: '/money', icon: WalletCards },
+  { to: '/agenda', icon: ReceiptText },
+  { to: '/settings', icon: Settings },
 ]
 
 function AppShell() {
@@ -24,6 +43,13 @@ function AppShell() {
   const [week, setWeek] = useState(1)
   const [offline, setOffline] = useState(!navigator.onLine)
   const [updateReady, setUpdateReady] = useState(false)
+  const language = data.settings?.appLanguage ?? 'zh'
+  const t = shellCopy[language]
+  const tabs = useMemo(() => tabDefs.map((tab, index) => ({ ...tab, label: t.tabs[index] })), [t])
+
+  useEffect(() => {
+    document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN'
+  }, [language])
 
   useEffect(() => {
     if (term) setWeek(getCurrentWeek(term))
@@ -51,14 +77,14 @@ function AppShell() {
     window.location.reload()
   }
 
-  if (!data.ready || !term) return <main className="loading">正在准备本地数据...</main>
+  if (!data.ready || !term) return <main className="loading">{t.loading}</main>
 
   return (
     <div className="app-shell">
       {(offline || updateReady) && (
         <div className="system-banner" role="status">
-          <span>{offline ? '离线模式：已缓存的课表、账目和日程仍可使用。' : '新版本可用，保存当前编辑后可立即更新。'}</span>
-          {updateReady && !offline && <button className="banner-action" type="button" onClick={() => void applyUpdate()}>立即更新</button>}
+          <span>{offline ? t.offline : t.update}</span>
+          {updateReady && !offline && <button className="banner-action" type="button" onClick={() => void applyUpdate()}>{t.updateNow}</button>}
         </div>
       )}
       <main className="app-main">
@@ -70,7 +96,7 @@ function AppShell() {
           <Route path="/settings" element={<SettingsPage data={data} term={term} />} />
         </Routes>
       </main>
-      <nav className="tabbar" aria-label="主要导航">
+      <nav className="tabbar" aria-label={t.nav}>
         {tabs.map((tab) => {
           const Icon = tab.icon
           return (

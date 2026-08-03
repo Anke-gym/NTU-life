@@ -73,9 +73,11 @@ export interface AppSettings {
   defaultCurrency: string
   defaultClassReminderMinutes: number
   theme: 'system' | 'light' | 'dark'
+  appLanguage?: 'zh' | 'en'
   speechLanguage: 'zh-CN' | 'zh-SG' | 'en-SG'
   displayName?: string
   studentNumber?: string
+  moneyCategories?: string[]
   schemaVersion: number
 }
 

@@ -4,6 +4,7 @@ import type { AcademicTerm, AgendaItem, AppSettings, BackupPayload, Course, Sche
 import { AY26_T1 } from './term'
 
 export const settingsId = 'default'
+export const defaultMoneyCategories = ['吃饭', '交通', '饮料', '生活用品', '学习资料', '房租水电', '医疗', '其他']
 
 export class NtuLifeDb extends Dexie {
   terms!: Table<AcademicTerm, string>
@@ -47,11 +48,22 @@ export async function ensureSeedData() {
       defaultCurrency: 'SGD',
       defaultClassReminderMinutes: 30,
       theme: 'system',
+      appLanguage: 'zh',
       speechLanguage: 'zh-CN',
       displayName: '',
       studentNumber: '',
+      moneyCategories: defaultMoneyCategories,
       schemaVersion: 2,
     })
+    return
+  }
+  const patched: AppSettings = {
+    ...settings,
+    appLanguage: settings.appLanguage ?? 'zh',
+    moneyCategories: settings.moneyCategories?.length ? settings.moneyCategories : defaultMoneyCategories,
+  }
+  if (patched.appLanguage !== settings.appLanguage || patched.moneyCategories !== settings.moneyCategories) {
+    await db.settings.put(patched)
   }
 }
 
@@ -117,9 +129,11 @@ const settingsSchema = z.object({
   defaultCurrency: z.string(),
   defaultClassReminderMinutes: z.number(),
   theme: z.enum(['system', 'light', 'dark']),
+  appLanguage: z.enum(['zh', 'en']).optional(),
   speechLanguage: z.enum(['zh-CN', 'zh-SG', 'en-SG']),
   displayName: z.string().optional(),
   studentNumber: z.string().optional(),
+  moneyCategories: z.array(z.string()).optional(),
   schemaVersion: z.number(),
 })
 

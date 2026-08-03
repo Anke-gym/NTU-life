@@ -24,12 +24,13 @@ test('mobile core flow', async ({ page }) => {
 
   await page.locator('.week-pills').getByRole('button', { name: '第 1 周' }).click()
   await page.getByRole('button', { name: /CA6000 20:00-22:00/ }).click()
+  await expect(page.getByRole('link', { name: '打开 NTU Maps' })).toHaveAttribute('href', /search=/)
   await page.getByLabel('课程备注').fill('带电脑')
   await page.getByRole('button', { name: '保存' }).click()
   await expect(page.getByText('备注').first()).toBeVisible()
 
   await page.getByRole('link', { name: /记账/ }).click()
-  await page.getByRole('button', { name: '交通' }).click()
+  await page.locator('.preset-grid').getByRole('button', { name: '交通', exact: true }).click()
   await page.getByLabel('金额').fill('8')
   await page.getByRole('button', { name: '保存' }).click()
   await expect(page.getByText('今天支出')).toBeVisible()

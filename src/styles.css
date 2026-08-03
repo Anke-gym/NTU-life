@@ -64,6 +64,10 @@ button { min-height: 44px; }
   color: #5a4100;
   font-size: 14px;
 }
+.system-banner span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .banner-action {
   flex: 0 0 auto;
   min-height: 34px;
@@ -493,13 +497,52 @@ textarea { resize: vertical; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
+.preset-edit {
+  position: relative;
+}
 .preset-button {
+  width: 100%;
   min-height: 52px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(0, 122, 255, 0.1);
   color: var(--blue);
   font-weight: 800;
+}
+.mini-remove {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--red);
+}
+.inline-add {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+.map-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin: -2px 0 12px;
+  border: 1px solid rgba(0, 122, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(0, 122, 255, 0.1);
+  color: var(--blue);
+  font-weight: 800;
+  text-decoration: none;
 }
 .pie-layout {
   display: grid;
@@ -556,6 +599,8 @@ textarea { resize: vertical; }
   position: absolute;
   opacity: 0;
   pointer-events: none;
+  width: 1px;
+  min-height: 1px;
 }
 .compact-list summary {
   min-height: 44px;

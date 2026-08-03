@@ -3,6 +3,7 @@ import { useState, type CSSProperties, type Dispatch, type FormEvent, type SetSt
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ImportPanel } from '../components/ImportPanel'
 import { db } from '../lib/db'
+import { commonCopy, getLanguage } from '../lib/i18n'
 import { dateForWeekday, expandRules, onlineTasks, weekdays, weekPeriod } from '../lib/term'
 import type { AcademicTerm, Course, CourseOccurrence, ScheduleRule, Weekday } from '../lib/types'
 import type { AppData } from '../lib/useData'
@@ -11,6 +12,69 @@ const dayStartMinutes = 8 * 60
 const dayEndMinutes = 22 * 60
 const rowHeight = 40
 const timeLabels = Array.from({ length: 15 }, (_, index) => `${String(index + 8).padStart(2, '0')}:00`)
+
+const copy = {
+  zh: {
+    title: '课表',
+    addCourse: '新增课程',
+    teachingWeeks: '教学周',
+    week: (week: number) => `第 ${week} 周`,
+    import: '导入',
+    onlineTasks: '本周网课任务',
+    done: '已完成',
+    pending: '待完成',
+    calendarLabel: (week: number) => `第 ${week} 周课表`,
+    myCourses: '我的课程',
+    empty: '还没有课表。点击右上角“导入”或“+”开始添加。',
+    courseAndNote: '课程与备注',
+    code: '代码',
+    name: '名称',
+    lecturer: '教师',
+    weeks: '周次',
+    weekday: '星期',
+    start: '开始',
+    end: '结束',
+    venue: '地点',
+    openMaps: '打开 NTU Maps',
+    note: '课程备注',
+    notePlaceholder: '例如：带电脑、课前看视频、作业截止提醒',
+    deleteRule: '删除课程规则',
+    deleteBody: '删除后该规则对应周次不再显示。',
+    closeImport: '关闭',
+    to: '至',
+    noteBadge: '备注',
+  },
+  en: {
+    title: 'Schedule',
+    addCourse: 'Add Course',
+    teachingWeeks: 'Teaching Weeks',
+    week: (week: number) => `Week ${week}`,
+    import: 'Import',
+    onlineTasks: 'This Week Online Tasks',
+    done: 'Done',
+    pending: 'Pending',
+    calendarLabel: (week: number) => `Week ${week} schedule`,
+    myCourses: 'My Courses',
+    empty: 'No schedule yet. Tap Import or + in the top right to start.',
+    courseAndNote: 'Course & Notes',
+    code: 'Code',
+    name: 'Name',
+    lecturer: 'Lecturer',
+    weeks: 'Weeks',
+    weekday: 'Day',
+    start: 'Start',
+    end: 'End',
+    venue: 'Venue',
+    openMaps: 'Open NTU Maps',
+    note: 'Course Note',
+    notePlaceholder: 'For example: bring laptop, watch video before class, assignment deadline',
+    deleteRule: 'Delete Course Rule',
+    deleteBody: 'After deletion, this rule will no longer appear for its weeks.',
+    closeImport: 'Close',
+    to: 'to',
+    noteBadge: 'Note',
+  },
+} as const
 
 export function SchedulePage({
   data,
@@ -26,6 +90,9 @@ export function SchedulePage({
   const [importOpen, setImportOpen] = useState(!data.courses.length)
   const [editing, setEditing] = useState<{ course: Course; rule?: ScheduleRule } | undefined>()
   const [deleteRule, setDeleteRule] = useState<ScheduleRule | undefined>()
+  const language = getLanguage(data)
+  const t = copy[language]
+  const common = commonCopy[language]
   const occurrences = expandRules(term, data.courses, data.rules, week)
   const tasks = onlineTasks(data.courses, data.rules, week)
   const period = weekPeriod(term, week)
@@ -40,13 +107,13 @@ export function SchedulePage({
     <div className="page schedule-page">
       <header className="page-header">
         <div>
-          <h1>课表</h1>
-          <p className="muted">{period.startDate} 至 {period.endDate}</p>
+          <h1>{t.title}</h1>
+          <p className="muted">{period.startDate} {t.to} {period.endDate}</p>
         </div>
-        <button className="icon-button" type="button" aria-label="新增课程" onClick={() => setEditing({ course: newCourse() })}><Plus /></button>
+        <button className="icon-button" type="button" aria-label={t.addCourse} onClick={() => setEditing({ course: newCourse() })}><Plus /></button>
       </header>
       <div className="schedule-toolbar">
-        <div className="week-pills" role="tablist" aria-label="教学周">
+        <div className="week-pills" role="tablist" aria-label={t.teachingWeeks}>
           {term.weekPeriods.map((item) => (
             <button
               className={item.weekNumber === week ? 'pill active' : 'pill'}
@@ -55,16 +122,16 @@ export function SchedulePage({
               onPointerDown={() => setWeek(item.weekNumber)}
               onClick={() => setWeek(item.weekNumber)}
             >
-              第 {item.weekNumber} 周
+              {t.week(item.weekNumber)}
             </button>
           ))}
         </div>
         <button className="button primary import-button" type="button" onClick={() => setImportOpen(true)}>
-          <Download size={18} />导入
+          <Download size={18} />{t.import}
         </button>
       </div>
       {tasks.length > 0 && (
-        <section className="online-strip" aria-label="本周网课任务">
+        <section className="online-strip" aria-label={t.onlineTasks}>
           {tasks.map((task) => (
             <button
               className={`online-task ${task.rule.completed ? 'done' : ''}`}
@@ -73,17 +140,17 @@ export function SchedulePage({
               onClick={() => void toggleTask(task.rule)}
             >
               <span>{task.course?.code} Online Video</span>
-              <b>{task.rule.completed ? '已完成' : '待完成'}</b>
+              <b>{task.rule.completed ? t.done : t.pending}</b>
             </button>
           ))}
         </section>
       )}
-      <section className="calendar-board" aria-label={`第 ${week} 周课表`}>
+      <section className="calendar-board" aria-label={t.calendarLabel(week)}>
         <div className="calendar-header" style={{ gridTemplateColumns: '48px repeat(6, minmax(70px, 1fr))' }}>
           <span />
-          {weekdays.slice(0, 6).map((day) => (
+          {weekdays.slice(0, 6).map((day, index) => (
             <strong className="day-heading" key={day.value}>
-              <span>周{day.short}</span>
+              <span>{common.weekdays[index].short}</span>
               <small>{formatHeaderDate(dateForWeekday(term, week, day.value))}</small>
             </strong>
           ))}
@@ -99,6 +166,7 @@ export function SchedulePage({
             <CalendarCourse
               key={item.id}
               occurrence={item}
+              noteBadge={t.noteBadge}
               onClick={() => setEditing({ course: item.course, rule: item.rule })}
             />
           ))}
@@ -106,7 +174,7 @@ export function SchedulePage({
       </section>
       {data.courses.length > 0 && (
         <section className="course-summary panel">
-          <h2>我的课程</h2>
+          <h2>{t.myCourses}</h2>
           <div className="course-legend">
             {data.courses.map((course) => (
               <span key={course.id}>
@@ -118,26 +186,36 @@ export function SchedulePage({
           </div>
         </section>
       )}
-      {!data.courses.length && <p className="empty panel">还没有课表。点击右上角“导入”或“+”开始添加。</p>}
+      {!data.courses.length && <p className="empty panel">{t.empty}</p>}
       {importOpen && (
         <div className="sheet">
           <div className="sheet-content">
-            <ImportPanel onDone={async () => { await data.reload(); setImportOpen(false) }} />
-            <button className="button ghost full-width" type="button" onClick={() => setImportOpen(false)}>关闭</button>
+            <ImportPanel language={language} onDone={async () => { await data.reload(); setImportOpen(false) }} />
+            <button className="button ghost full-width" type="button" onClick={() => setImportOpen(false)}>{t.closeImport}</button>
           </div>
         </div>
       )}
-      {editing && <CourseEditor course={editing.course} rule={editing.rule} onDelete={setDeleteRule} onClose={() => setEditing(undefined)} onDone={data.reload} />}
-      <ConfirmDialog open={Boolean(deleteRule)} title="删除课程规则" destructive onCancel={() => setDeleteRule(undefined)} onConfirm={() => {
-        if (deleteRule) void db.scheduleRules.delete(deleteRule.id).then(data.reload)
-        setDeleteRule(undefined)
-        setEditing(undefined)
-      }}>删除后该规则对应周次不再显示。</ConfirmDialog>
+      {editing && <CourseEditor course={editing.course} rule={editing.rule} language={language} onDelete={setDeleteRule} onClose={() => setEditing(undefined)} onDone={data.reload} />}
+      <ConfirmDialog
+        open={Boolean(deleteRule)}
+        title={t.deleteRule}
+        destructive
+        cancelLabel={common.cancel}
+        confirmLabel={common.confirm}
+        onCancel={() => setDeleteRule(undefined)}
+        onConfirm={() => {
+          if (deleteRule) void db.scheduleRules.delete(deleteRule.id).then(data.reload)
+          setDeleteRule(undefined)
+          setEditing(undefined)
+        }}
+      >
+        {t.deleteBody}
+      </ConfirmDialog>
     </div>
   )
 }
 
-function CalendarCourse({ occurrence, onClick }: { occurrence: CourseOccurrence; onClick: () => void }) {
+function CalendarCourse({ occurrence, noteBadge, onClick }: { occurrence: CourseOccurrence; noteBadge: string; onClick: () => void }) {
   const start = toMinutes(occurrence.rule.startTime ?? '08:00')
   const end = toMinutes(occurrence.rule.endTime ?? '09:00')
   const top = Math.max(0, start - dayStartMinutes) / 60 * rowHeight
@@ -157,7 +235,7 @@ function CalendarCourse({ occurrence, onClick }: { occurrence: CourseOccurrence;
       <strong>{occurrence.course.code}</strong>
       <span>{occurrence.rule.startTime}-{occurrence.rule.endTime}</span>
       <small>{occurrence.rule.venue}</small>
-      {occurrence.rule.note && <em>备注</em>}
+      {occurrence.rule.note && <em>{noteBadge}</em>}
     </button>
   )
 }
@@ -208,12 +286,14 @@ function newCourse(): Course {
 function CourseEditor({
   course,
   rule,
+  language,
   onDelete,
   onClose,
   onDone,
 }: {
   course: Course
   rule?: ScheduleRule
+  language: 'zh' | 'en'
   onDelete: (rule: ScheduleRule) => void
   onClose: () => void
   onDone: () => Promise<void>
@@ -227,6 +307,8 @@ function CourseEditor({
     venue: rule?.venue ?? '',
     note: rule?.note ?? '',
   })
+  const t = copy[language]
+  const common = commonCopy[language]
   async function submit(event: FormEvent) {
     event.preventDefault()
     const updated = { ...form, updatedAt: new Date().toISOString() }
@@ -258,24 +340,24 @@ function CourseEditor({
   return (
     <div className="sheet">
       <form className="sheet-content" onSubmit={(event) => void submit(event)}>
-        <h2>课程与备注</h2>
-        <label className="field"><span>代码</span><input required value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} /></label>
-        <label className="field"><span>名称</span><input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>
-        <label className="field"><span>教师</span><input value={form.lecturer} onChange={(event) => setForm({ ...form, lecturer: event.target.value })} /></label>
-        <label className="field"><span>周次</span><input required value={ruleForm.weeks} onChange={(event) => setRuleForm({ ...ruleForm, weeks: event.target.value })} /></label>
-        <label className="field"><span>星期</span><select value={ruleForm.weekday} onChange={(event) => setRuleForm({ ...ruleForm, weekday: Number(event.target.value) as Weekday })}>{weekdays.slice(0, 6).map((day) => <option key={day.value} value={day.value}>{day.label}</option>)}</select></label>
-        <div className="form-grid"><label className="field"><span>开始</span><input type="time" value={ruleForm.startTime} onChange={(event) => setRuleForm({ ...ruleForm, startTime: event.target.value })} /></label><label className="field"><span>结束</span><input type="time" value={ruleForm.endTime} onChange={(event) => setRuleForm({ ...ruleForm, endTime: event.target.value })} /></label></div>
-        <label className="field"><span>地点</span><input value={ruleForm.venue} onChange={(event) => setRuleForm({ ...ruleForm, venue: event.target.value })} /></label>
+        <h2>{t.courseAndNote}</h2>
+        <label className="field"><span>{t.code}</span><input required value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} /></label>
+        <label className="field"><span>{t.name}</span><input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>
+        <label className="field"><span>{t.lecturer}</span><input value={form.lecturer} onChange={(event) => setForm({ ...form, lecturer: event.target.value })} /></label>
+        <label className="field"><span>{t.weeks}</span><input required value={ruleForm.weeks} onChange={(event) => setRuleForm({ ...ruleForm, weeks: event.target.value })} /></label>
+        <label className="field"><span>{t.weekday}</span><select value={ruleForm.weekday} onChange={(event) => setRuleForm({ ...ruleForm, weekday: Number(event.target.value) as Weekday })}>{weekdays.slice(0, 6).map((day, index) => <option key={day.value} value={day.value}>{common.weekdays[index].label}</option>)}</select></label>
+        <div className="form-grid"><label className="field"><span>{t.start}</span><input type="time" value={ruleForm.startTime} onChange={(event) => setRuleForm({ ...ruleForm, startTime: event.target.value })} /></label><label className="field"><span>{t.end}</span><input type="time" value={ruleForm.endTime} onChange={(event) => setRuleForm({ ...ruleForm, endTime: event.target.value })} /></label></div>
+        <label className="field"><span>{t.venue}</span><input value={ruleForm.venue} onChange={(event) => setRuleForm({ ...ruleForm, venue: event.target.value })} /></label>
         {ruleForm.venue.trim() && (
           <a className="map-link" href={ntuMapsUrl(ruleForm.venue)} target="_blank" rel="noreferrer">
-            <ExternalLink size={17} />打开 NTU Maps
+            <ExternalLink size={17} />{t.openMaps}
           </a>
         )}
-        <label className="field"><span>课程备注</span><textarea rows={3} value={ruleForm.note} onChange={(event) => setRuleForm({ ...ruleForm, note: event.target.value })} placeholder="例如：带电脑、课前看视频、作业截止提醒" /></label>
+        <label className="field"><span>{t.note}</span><textarea rows={3} value={ruleForm.note} onChange={(event) => setRuleForm({ ...ruleForm, note: event.target.value })} placeholder={t.notePlaceholder} /></label>
         <div className="dialog-actions">
-          {rule && <button className="button ghost danger-text" type="button" onClick={() => onDelete(rule)}>删除</button>}
-          <button className="button ghost" type="button" onClick={onClose}>取消</button>
-          <button className="button primary" type="submit">保存</button>
+          {rule && <button className="button ghost danger-text" type="button" onClick={() => onDelete(rule)}>{common.delete}</button>}
+          <button className="button ghost" type="button" onClick={onClose}>{common.cancel}</button>
+          <button className="button primary" type="submit">{common.save}</button>
         </div>
       </form>
     </div>

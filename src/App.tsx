@@ -8,6 +8,7 @@ import { AgendaPage } from './pages/AgendaPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { useData } from './lib/useData'
 import { getCurrentWeek } from './lib/term'
+import { getLanguage } from './lib/i18n'
 import './styles.css'
 
 const shellCopy = {
@@ -27,7 +28,7 @@ const shellCopy = {
     nav: 'Main navigation',
     tabs: ['Home', 'Schedule', 'Money', 'Agenda', 'Settings'],
   },
-}
+} as const
 
 const tabDefs = [
   { to: '/', icon: Home },
@@ -43,7 +44,7 @@ function AppShell() {
   const [week, setWeek] = useState(1)
   const [offline, setOffline] = useState(!navigator.onLine)
   const [updateReady, setUpdateReady] = useState(false)
-  const language = data.settings?.appLanguage ?? 'zh'
+  const language = getLanguage(data)
   const t = shellCopy[language]
   const tabs = useMemo(() => tabDefs.map((tab, index) => ({ ...tab, label: t.tabs[index] })), [t])
 

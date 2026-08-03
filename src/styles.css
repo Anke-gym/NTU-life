@@ -451,6 +451,9 @@ textarea { resize: vertical; }
   gap: 8px;
   margin-bottom: 12px;
 }
+.range-tabs.three {
+  grid-template-columns: repeat(3, 1fr);
+}
 .range-tabs button {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -498,7 +501,8 @@ textarea { resize: vertical; }
   gap: 10px;
 }
 .preset-edit {
-  position: relative;
+  display: grid;
+  gap: 6px;
 }
 .preset-button {
   width: 100%;
@@ -510,18 +514,16 @@ textarea { resize: vertical; }
   font-weight: 800;
 }
 .mini-remove {
-  position: absolute;
-  top: -7px;
-  right: -7px;
-  width: 28px;
-  height: 28px;
-  min-height: 28px;
-  display: grid;
-  place-items: center;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   border: 1px solid var(--line);
-  border-radius: 50%;
-  background: var(--panel);
+  border-radius: 8px;
+  background: rgba(217, 45, 32, 0.08);
   color: var(--red);
+  font-weight: 800;
 }
 .inline-add {
   display: grid;

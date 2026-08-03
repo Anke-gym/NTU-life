@@ -3,6 +3,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { clearAllData, db, exportBackup, restoreBackup } from '../lib/db'
 import { downloadText, shareFile } from '../lib/files'
 import { agendaToIcs, scheduleToIcs } from '../lib/ics'
+import { commonCopy, getLanguage } from '../lib/i18n'
 import type { AcademicTerm, AppSettings } from '../lib/types'
 import type { AppData } from '../lib/useData'
 
@@ -67,15 +68,16 @@ const copy = {
     storageDenied: 'Browser did not grant persistent storage',
     counts: (terms: number, courses: number, transactions: number, agenda: number) => `Terms ${terms}, courses ${courses}, transactions ${transactions}, agenda ${agenda}`,
   },
-}
+} as const
 
 export function SettingsPage({ data, term }: { data: AppData; term: AcademicTerm }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const [restoreSummary, setRestoreSummary] = useState<{ payload: unknown; text: string }>()
   const [storage, setStorage] = useState('')
-  const language = data.settings?.appLanguage ?? 'zh'
+  const language = getLanguage(data)
   const t = copy[language]
+  const common = commonCopy[language]
 
   const caps = useMemo(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches || ('standalone' in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone))
@@ -155,8 +157,33 @@ export function SettingsPage({ data, term }: { data: AppData; term: AcademicTerm
         <h2>{t.privacy}</h2>
         <p>{t.privacyText}</p>
       </section>
-      <ConfirmDialog open={confirmClear} title={t.clearTitle} destructive onCancel={() => setConfirmClear(false)} onConfirm={() => { void clearAllData().then(data.reload); setConfirmClear(false) }}>{t.clearBody}</ConfirmDialog>
-      <ConfirmDialog open={Boolean(restoreSummary)} title={t.restoreTitle} onCancel={() => setRestoreSummary(undefined)} onConfirm={() => { if (restoreSummary) void restoreBackup(restoreSummary.payload, 'merge').then(data.reload); setRestoreSummary(undefined) }}>{restoreSummary?.text}<br />{t.restoreMode}</ConfirmDialog>
+      <ConfirmDialog
+        open={confirmClear}
+        title={t.clearTitle}
+        destructive
+        cancelLabel={common.cancel}
+        confirmLabel={common.confirm}
+        onCancel={() => setConfirmClear(false)}
+        onConfirm={() => {
+          void clearAllData().then(data.reload)
+          setConfirmClear(false)
+        }}
+      >
+        {t.clearBody}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={Boolean(restoreSummary)}
+        title={t.restoreTitle}
+        cancelLabel={common.cancel}
+        confirmLabel={common.confirm}
+        onCancel={() => setRestoreSummary(undefined)}
+        onConfirm={() => {
+          if (restoreSummary) void restoreBackup(restoreSummary.payload, 'merge').then(data.reload)
+          setRestoreSummary(undefined)
+        }}
+      >
+        {restoreSummary?.text}<br />{t.restoreMode}
+      </ConfirmDialog>
     </div>
   )
 }

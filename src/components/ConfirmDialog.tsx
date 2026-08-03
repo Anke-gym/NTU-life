@@ -5,6 +5,8 @@ export function ConfirmDialog({
   title,
   children,
   destructive,
+  cancelLabel = '取消',
+  confirmLabel = '确认',
   onCancel,
   onConfirm,
 }: {
@@ -12,6 +14,8 @@ export function ConfirmDialog({
   title: string
   children: ReactNode
   destructive?: boolean
+  cancelLabel?: string
+  confirmLabel?: string
   onCancel: () => void
   onConfirm: () => void
 }) {
@@ -22,8 +26,8 @@ export function ConfirmDialog({
         <h2 id="dialog-title">{title}</h2>
         <div className="dialog-body">{children}</div>
         <div className="dialog-actions">
-          <button type="button" className="button ghost" onClick={onCancel}>取消</button>
-          <button type="button" className={`button ${destructive ? 'danger' : 'primary'}`} onClick={onConfirm}>确认</button>
+          <button type="button" className="button ghost" onClick={onCancel}>{cancelLabel}</button>
+          <button type="button" className={`button ${destructive ? 'danger' : 'primary'}`} onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </div>
     </div>

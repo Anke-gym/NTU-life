@@ -4,7 +4,7 @@ import App from './App.tsx'
 import './styles.css'
 import { registerSW } from 'virtual:pwa-register'
 
-registerSW({
+const updateSW = registerSW({
   onNeedRefresh() {
     window.dispatchEvent(new Event('ntu-life-update-ready'))
   },
@@ -12,6 +12,8 @@ registerSW({
     window.dispatchEvent(new Event('ntu-life-offline-ready'))
   },
 })
+
+window.__NTU_LIFE_UPDATE_SW__ = updateSW
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

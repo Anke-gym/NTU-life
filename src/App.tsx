@@ -32,14 +32,24 @@ function AppShell() {
   useEffect(() => {
     const onOnline = () => setOffline(false)
     const onOffline = () => setOffline(true)
+    const onUpdateReady = () => setUpdateReady(true)
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
-    window.addEventListener('ntu-life-update-ready', () => setUpdateReady(true))
+    window.addEventListener('ntu-life-update-ready', onUpdateReady)
     return () => {
       window.removeEventListener('online', onOnline)
       window.removeEventListener('offline', onOffline)
+      window.removeEventListener('ntu-life-update-ready', onUpdateReady)
     }
   }, [])
+
+  async function applyUpdate() {
+    if (window.__NTU_LIFE_UPDATE_SW__) {
+      await window.__NTU_LIFE_UPDATE_SW__(true)
+      return
+    }
+    window.location.reload()
+  }
 
   if (!data.ready || !term) return <main className="loading">正在准备本地数据...</main>
 
@@ -47,7 +57,8 @@ function AppShell() {
     <div className="app-shell">
       {(offline || updateReady) && (
         <div className="system-banner" role="status">
-          {offline ? '离线模式：已缓存的课表、账目和日程仍可使用。' : '新版本可用，完成当前编辑后可刷新页面。'}
+          <span>{offline ? '离线模式：已缓存的课表、账目和日程仍可使用。' : '新版本可用，保存当前编辑后可立即更新。'}</span>
+          {updateReady && !offline && <button className="banner-action" type="button" onClick={() => void applyUpdate()}>立即更新</button>}
         </div>
       )}
       <main className="app-main">

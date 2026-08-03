@@ -1,0 +1,1 @@
+NTU Life keeps OCR assets on the same origin. Tesseract worker, WASM core, and English traineddata are copied into public/tesseract during project setup.

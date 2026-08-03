@@ -8,9 +8,16 @@ describe('ics export', () => {
   it('generates schedule events with date, venue, uid and alarm', () => {
     const parsed = parseScheduleText(goldenScheduleText)
     const ics = scheduleToIcs(AY26_T1, parsed.courses, parsed.rules, { weeks: [9], reminderMinutes: 30 })
+    
+    // =========新增打印代码=========
+    console.log("====完整ICS输出====")
+    console.log(ics)
+    console.log(JSON.stringify(ics))
+    // ==============================
+
     expect(ics).toContain('BEGIN:VCALENDAR')
     expect(ics).toContain('UID:')
-    expect(ics).toContain('DTSTART;TZID=Asia/Singapore:20260929T193000')
+    expect(ics).toMatch(/DTSTART;TZID=Asia\/Singapore:20260929T193000/)
     expect(ics).toContain('LOCATION:LT28')
     expect(ics).toContain('TRIGGER:-PT30M')
   })

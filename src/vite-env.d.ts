@@ -3,4 +3,5 @@
 
 interface Window {
   __NTU_LIFE_UPDATE_SW__?: (reloadPage?: boolean) => Promise<void>
+  __NTU_LIFE_CHECK_UPDATE__?: () => Promise<boolean>
 }

@@ -27,6 +27,10 @@ const copy = {
     exportSchedule: '导出课表 ICS',
     exportAgenda: '导出日程 ICS',
     persist: '请求持久存储',
+    checkUpdate: '检查更新',
+    updateAvailable: '检测到新版本，请点击顶部提示里的“立即更新”。',
+    updateCurrent: '当前已经是最新版本。',
+    updateUnavailable: '当前环境暂时无法检查更新，请稍后再试。',
     clear: '清空全部数据',
     privacy: '隐私说明',
     privacyText: '所有课表、账目和日程默认仅保存在当前设备浏览器中，不上传服务器。清除 Safari 网站数据可能会同时删除本地数据，请定期导出 JSON 备份。',
@@ -57,6 +61,10 @@ const copy = {
     exportSchedule: 'Export Schedule ICS',
     exportAgenda: 'Export Agenda ICS',
     persist: 'Request Persistent Storage',
+    checkUpdate: 'Check for Updates',
+    updateAvailable: 'A new version was found. Tap Update now in the top banner.',
+    updateCurrent: 'You are already on the latest version.',
+    updateUnavailable: 'Update checking is temporarily unavailable. Try again later.',
     clear: 'Clear All Data',
     privacy: 'Privacy',
     privacyText: 'Schedules, transactions, and agenda items are stored only in this device browser by default. Clearing Safari website data may also delete local data, so export JSON backups regularly.',
@@ -75,6 +83,7 @@ export function SettingsPage({ data, term }: { data: AppData; term: AcademicTerm
   const [confirmClear, setConfirmClear] = useState(false)
   const [restoreSummary, setRestoreSummary] = useState<{ payload: unknown; text: string }>()
   const [storage, setStorage] = useState('')
+  const [updateStatus, setUpdateStatus] = useState('')
   const language = getLanguage(data)
   const t = copy[language]
   const common = commonCopy[language]
@@ -114,6 +123,15 @@ export function SettingsPage({ data, term }: { data: AppData; term: AcademicTerm
     setRestoreSummary({ payload, text: t.counts(count.terms, count.courses, count.transactions, count.agenda) })
   }
 
+  async function checkUpdate() {
+    if (!window.__NTU_LIFE_CHECK_UPDATE__) {
+      setUpdateStatus(t.updateUnavailable)
+      return
+    }
+    const found = await window.__NTU_LIFE_CHECK_UPDATE__()
+    setUpdateStatus(found ? t.updateAvailable : t.updateCurrent)
+  }
+
   return (
     <div className="page">
       <header className="large-title"><span>{t.version}</span><h1>{t.title}</h1><p>{t.subtitle}</p></header>
@@ -150,6 +168,8 @@ export function SettingsPage({ data, term }: { data: AppData; term: AcademicTerm
           <button className="button ghost" type="button" onClick={() => void shareFile('ntu-life-agenda.ics', agendaToIcs(data.agendaItems), 'text/calendar;charset=utf-8')}>{t.exportAgenda}</button>
           <button className="button ghost" type="button" onClick={async () => setStorage(await navigator.storage?.persist?.() ? t.storageGranted : t.storageDenied)}>{t.persist}</button>
           {storage && <p className="muted">{storage}</p>}
+          <button className="button ghost" type="button" onClick={() => void checkUpdate()}>{t.checkUpdate}</button>
+          {updateStatus && <p className="muted">{updateStatus}</p>}
           <button className="button danger" type="button" onClick={() => setConfirmClear(true)}>{t.clear}</button>
         </div>
       </section>

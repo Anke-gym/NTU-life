@@ -1,11 +1,11 @@
-import { format, isToday, parseISO, startOfMonth } from 'date-fns'
+import { endOfDay, format, isToday, isWithinInterval, parseISO, startOfDay } from 'date-fns'
 import { UserRound } from 'lucide-react'
-import { useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
+import { useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
 import { CourseCard } from '../components/CourseCard'
 import { db } from '../lib/db'
 import { commonCopy, getLanguage } from '../lib/i18n'
-import { expandRules, onlineTasks, weekPeriod } from '../lib/term'
-import type { AcademicTerm } from '../lib/types'
+import { expandAllRules, expandRules, getCurrentWeek, onlineTasks, weekPeriod } from '../lib/term'
+import type { AcademicTerm, CourseOccurrence } from '../lib/types'
 import type { AppData } from '../lib/useData'
 
 const copy = {
@@ -19,13 +19,14 @@ const copy = {
     noOnlineTasks: '本周没有在线学习任务。',
     nextCourse: '下一节课',
     none: '暂无',
-    monthBalance: '本月收支',
+    todayExpense: '今日支出',
     profileTitle: '个人信息',
     name: '姓名',
     namePlaceholder: '输入姓名',
     studentNumber: '学号',
     studentNumberPlaceholder: '输入学号',
     to: '至',
+    week: (week: number) => `第 ${week} 周`,
   },
   en: {
     profile: 'Profile',
@@ -37,13 +38,14 @@ const copy = {
     noOnlineTasks: 'No online learning tasks this week.',
     nextCourse: 'Next Class',
     none: 'None',
-    monthBalance: 'Monthly Balance',
+    todayExpense: "Today's Expense",
     profileTitle: 'Profile',
     name: 'Name',
     namePlaceholder: 'Enter name',
     studentNumber: 'Student Number',
     studentNumberPlaceholder: 'Enter student number',
     to: 'to',
+    week: (week: number) => `Week ${week}`,
   },
 } as const
 
@@ -62,15 +64,16 @@ export function HomePage({
   const t = copy[language]
   const common = commonCopy[language]
   const today = format(new Date(), language === 'zh' ? 'yyyy年M月d日' : 'MMM d, yyyy')
-  const occurrences = expandRules(term, data.courses, data.rules, week)
+  const currentWeek = getCurrentWeek(term)
+  const occurrences = expandRules(term, data.courses, data.rules, currentWeek)
   const todayCourses = occurrences.filter((item) => isToday(parseISO(item.date))).slice(0, 3)
-  const nextCourse = occurrences.find((item) => item.startAt && parseISO(item.startAt) > new Date())
-  const monthStart = startOfMonth(new Date())
-  const monthTransactions = data.transactions.filter((item) => parseISO(item.occurredAt) >= monthStart)
-  const expense = monthTransactions.filter((item) => item.direction === 'expense').reduce((sum, item) => sum + item.amountCents, 0)
-  const income = monthTransactions.filter((item) => item.direction === 'income').reduce((sum, item) => sum + item.amountCents, 0)
-  const tasks = onlineTasks(data.courses, data.rules, week)
+  const tasks = onlineTasks(data.courses, data.rules, currentWeek)
   const period = weekPeriod(term, week)
+  const todayRange = { start: startOfDay(new Date()), end: endOfDay(new Date()) }
+  const todayExpense = data.transactions
+    .filter((item) => item.direction === 'expense' && isWithinInterval(parseISO(item.occurredAt), todayRange))
+    .reduce((sum, item) => sum + item.amountCents, 0)
+  const nextCourse = useMemo(() => findNextCourse(term, data), [data, term])
 
   return (
     <div className="page">
@@ -97,12 +100,28 @@ export function HomePage({
         {tasks.length ? tasks.map((item) => <p className={`task-line ${item.rule.completed ? 'done' : ''}`} key={item.rule.id}>{item.course?.code} · {item.rule.sourceText}</p>) : <p className="empty">{t.noOnlineTasks}</p>}
       </section>
       <section className="metric-grid">
-        <div className="metric"><span>{t.nextCourse}</span><strong>{nextCourse ? `${common.weekdays[nextCourse.weekday - 1].short} ${nextCourse.rule.startTime}` : t.none}</strong></div>
-        <div className="metric"><span>{t.monthBalance}</span><strong>${((income - expense) / 100).toFixed(2)}</strong></div>
+        <div className="metric"><span>{t.nextCourse}</span><strong>{nextCourse ? formatNextCourse(nextCourse, term, language) : t.none}</strong></div>
+        <div className="metric"><span>{t.todayExpense}</span><strong>{formatMoney(todayExpense)}</strong></div>
       </section>
       {editingProfile && <ProfileEditor data={data} language={language} onClose={() => setEditingProfile(false)} />}
     </div>
   )
+}
+
+function findNextCourse(term: AcademicTerm, data: AppData) {
+  const now = new Date()
+  return expandAllRules(term, data.courses, data.rules).find((item) => item.startAt && parseISO(item.startAt) > now)
+}
+
+function formatNextCourse(occurrence: CourseOccurrence, term: AcademicTerm, language: 'zh' | 'en') {
+  const common = commonCopy[language]
+  const t = copy[language]
+  const week = term.weekPeriods.find((item) => occurrence.date >= item.startDate && occurrence.date <= item.endDate)?.weekNumber ?? 1
+  return `${t.week(week)} ${common.weekdays[occurrence.weekday - 1].short} · ${occurrence.course.title} · ${occurrence.rule.startTime}-${occurrence.rule.endTime}`
+}
+
+function formatMoney(cents: number) {
+  return `S$${(cents / 100).toFixed(2)}`
 }
 
 function ProfileEditor({ data, language, onClose }: { data: AppData; language: 'zh' | 'en'; onClose: () => void }) {

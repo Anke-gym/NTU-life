@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { HashRouter, NavLink, Route, Routes } from 'react-router-dom'
+import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { CalendarDays, Home, ReceiptText, Settings, WalletCards } from 'lucide-react'
 import { HomePage } from './pages/HomePage'
 import { SchedulePage } from './pages/SchedulePage'
@@ -40,6 +40,7 @@ const tabDefs = [
 
 function AppShell() {
   const data = useData()
+  const location = useLocation()
   const term = data.terms[0]
   const [week, setWeek] = useState(1)
   const [offline, setOffline] = useState(!navigator.onLine)
@@ -54,6 +55,18 @@ function AppShell() {
 
   useEffect(() => {
     if (term) setWeek(getCurrentWeek(term))
+  }, [term])
+
+  useEffect(() => {
+    if (term && location.pathname === '/schedule') setWeek(getCurrentWeek(term))
+  }, [location.pathname, term])
+
+  useEffect(() => {
+    const syncCurrentWeek = () => {
+      if (term && document.visibilityState === 'visible') setWeek(getCurrentWeek(term))
+    }
+    document.addEventListener('visibilitychange', syncCurrentWeek)
+    return () => document.removeEventListener('visibilitychange', syncCurrentWeek)
   }, [term])
 
   useEffect(() => {

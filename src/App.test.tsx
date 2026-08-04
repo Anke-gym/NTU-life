@@ -4,12 +4,13 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('app shell', () => {
-  it('switches bottom tabs and shows voice fallback', async () => {
+  it('switches bottom tabs and shows expense fallback', async () => {
     render(<App />)
     await waitFor(() => expect(screen.getByRole('heading', { name: 'NTU Life' })).toBeInTheDocument())
     await userEvent.click(screen.getByRole('link', { name: /记账/ }))
     expect(await screen.findByRole('heading', { name: '记账' })).toBeInTheDocument()
     expect(screen.getByText(/键盘麦克风/)).toBeInTheDocument()
+    expect(screen.queryByText(/结余/)).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('link', { name: /课表/ }))
     expect(await screen.findByRole('heading', { name: '课表' })).toBeInTheDocument()
     expect(screen.getByRole('tablist', { name: '教学周' })).toBeInTheDocument()

@@ -1,5 +1,5 @@
 import { Download, ExternalLink, Plus } from 'lucide-react'
-import { useState, type CSSProperties, type Dispatch, type FormEvent, type SetStateAction } from 'react'
+import { useRef, useState, type CSSProperties, type Dispatch, type FormEvent, type SetStateAction, type TouchEvent } from 'react'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ImportPanel } from '../components/ImportPanel'
 import { db } from '../lib/db'
@@ -299,6 +299,10 @@ function CourseEditor({
   onDone: () => Promise<void>
 }) {
   const [form, setForm] = useState(course)
+  const [pull, setPull] = useState(0)
+  const startY = useRef(0)
+  const startScrollTop = useRef(0)
+  const contentRef = useRef<HTMLFormElement>(null)
   const [ruleForm, setRuleForm] = useState({
     weeks: rule?.weeks.join(',') ?? '1',
     weekday: rule?.weekday ?? 1,
@@ -309,6 +313,28 @@ function CourseEditor({
   })
   const t = copy[language]
   const common = commonCopy[language]
+
+  function onTouchStart(event: TouchEvent<HTMLFormElement>) {
+    startY.current = event.touches[0].clientY
+    startScrollTop.current = contentRef.current?.scrollTop ?? 0
+  }
+
+  function onTouchMove(event: TouchEvent<HTMLFormElement>) {
+    const delta = event.touches[0].clientY - startY.current
+    if (startScrollTop.current <= 0 && delta > 0) {
+      setPull(Math.min(delta, 160))
+      if (delta > 12) event.preventDefault()
+    }
+  }
+
+  function onTouchEnd() {
+    if (pull > 90) {
+      onClose()
+      return
+    }
+    setPull(0)
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault()
     const updated = { ...form, updatedAt: new Date().toISOString() }
@@ -339,7 +365,16 @@ function CourseEditor({
   }
   return (
     <div className="sheet">
-      <form className="sheet-content" onSubmit={(event) => void submit(event)}>
+      <form
+        ref={contentRef}
+        className="sheet-content draggable-sheet"
+        style={{ '--pull': `${pull}px` } as CSSProperties}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onSubmit={(event) => void submit(event)}
+      >
+        <span className="sheet-grabber" aria-hidden="true" />
         <h2>{t.courseAndNote}</h2>
         <label className="field"><span>{t.code}</span><input required value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} /></label>
         <label className="field"><span>{t.name}</span><input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>

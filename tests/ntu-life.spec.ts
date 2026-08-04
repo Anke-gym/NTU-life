@@ -6,6 +6,7 @@ test('mobile core flow', async ({ page }) => {
   await expect(page.getByText('个人主页')).toBeVisible()
 
   await page.getByRole('link', { name: /课表/ }).click()
+  await expect(page.locator('.week-pills').getByRole('button', { name: '第 1 周' })).toHaveClass(/active/)
   await page.getByRole('button', { name: '载入示例' }).click()
   await page.getByRole('button', { name: '确认导入' }).click()
   await expect(page.getByRole('button', { name: /CA6000/ }).first()).toBeVisible()
@@ -24,6 +25,7 @@ test('mobile core flow', async ({ page }) => {
 
   await page.locator('.week-pills').getByRole('button', { name: '第 1 周' }).click()
   await page.getByRole('button', { name: /CA6000 20:00-22:00/ }).click()
+  await expect(page.locator('.sheet-grabber')).toBeVisible()
   await expect(page.getByRole('link', { name: '打开 NTU Maps' })).toHaveAttribute('href', /search=/)
   await page.getByLabel('课程备注').fill('带电脑')
   await page.getByRole('button', { name: '保存' }).click()
@@ -34,13 +36,19 @@ test('mobile core flow', async ({ page }) => {
   await page.getByLabel('金额').fill('8')
   await page.getByRole('button', { name: '保存' }).click()
   await expect(page.getByText('今天支出')).toBeVisible()
-  await expect(page.getByText('汇总')).toBeVisible()
+  await expect(page.getByText('每日支出')).toBeVisible()
+  await expect(page.getByText('当天汇总')).toBeVisible()
   await expect(page.getByText('交通').first()).toBeVisible()
+  await expect(page.getByText('结余')).toHaveCount(0)
   const quickExpensePanel = page.locator('section.panel').filter({ has: page.getByRole('heading', { name: '快捷消费' }) })
   await quickExpensePanel.getByRole('button', { name: '编辑' }).click()
   await expect(page.getByPlaceholder('新增快捷项，例如咖啡')).toBeVisible()
   await expect(page.locator('.mini-remove').first()).toContainText('删除')
   await quickExpensePanel.getByRole('button', { name: '完成' }).click()
+
+  await page.getByRole('link', { name: /首页/ }).click()
+  await expect(page.getByText(/Applied AI Programming/)).toBeVisible()
+  await expect(page.getByText('今日支出')).toBeVisible()
 
   await page.getByRole('link', { name: /日程/ }).click()
   await page.getByRole('button', { name: '新建日程' }).click()

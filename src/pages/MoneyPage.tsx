@@ -1,8 +1,10 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import {
+  addDays,
   endOfDay,
   endOfMonth,
   endOfWeek,
+  format,
   isWithinInterval,
   parseISO,
   startOfDay,
@@ -24,11 +26,9 @@ type CurrencyCode = 'CNY' | 'SGD'
 const copy = {
   zh: {
     title: '记账',
-    newTransaction: '新增账目',
+    newTransaction: '新增支出',
     rangeLabel: { today: '今天', week: '本周', month: '本月' },
-    income: '收入',
     expense: '支出',
-    balance: '结余',
     quickExpense: '快捷消费',
     customizable: '可自定义',
     done: '完成',
@@ -41,28 +41,26 @@ const copy = {
     speechWarning: '当前 Safari/PWA 不支持 SpeechRecognition。可点输入框后使用 iPhone 键盘麦克风听写。',
     textOrDictation: '文字或听写',
     voicePlaceholder: '今天午饭花了12.5块',
-    generate: '生成账目',
-    transactions: '交易',
-    summary: '汇总',
-    noTransactions: '暂无交易',
-    noDetails: '这个时间范围内没有明细。',
+    generate: '生成支出',
+    dailyExpense: '每日支出',
+    today: '今天',
+    summary: '当天汇总',
+    noTransactions: '暂无支出',
+    noDetails: '这一天没有支出明细。',
     amount: '金额',
-    type: '类型',
     category: '分类',
     dateTime: '日期时间',
     note: '备注',
     currency: '货币',
-    account: '账目',
-    deleteTitle: '删除账目',
+    account: '支出',
+    deleteTitle: '删除支出',
     deleteBody: '删除后无法撤销。',
   },
   en: {
     title: 'Money',
-    newTransaction: 'New transaction',
+    newTransaction: 'New Expense',
     rangeLabel: { today: 'Today', week: 'This Week', month: 'This Month' },
-    income: 'Income',
     expense: 'Expense',
-    balance: 'Balance',
     quickExpense: 'Quick Expense',
     customizable: 'Customizable',
     done: 'Done',
@@ -75,19 +73,19 @@ const copy = {
     speechWarning: 'SpeechRecognition is unavailable in this Safari/PWA. Tap the input and use iPhone keyboard dictation instead.',
     textOrDictation: 'Text or dictation',
     voicePlaceholder: 'Lunch 12.5 today',
-    generate: 'Create Transaction',
-    transactions: 'Transactions',
-    summary: 'Summary',
-    noTransactions: 'No transactions',
-    noDetails: 'No details in this range.',
+    generate: 'Create Expense',
+    dailyExpense: 'Daily Expense',
+    today: 'Today',
+    summary: 'Daily Summary',
+    noTransactions: 'No expenses',
+    noDetails: 'No expense details for this day.',
     amount: 'Amount',
-    type: 'Type',
     category: 'Category',
     dateTime: 'Date & Time',
     note: 'Note',
     currency: 'Currency',
-    account: 'Transaction',
-    deleteTitle: 'Delete Transaction',
+    account: 'Expense',
+    deleteTitle: 'Delete Expense',
     deleteBody: 'This cannot be undone.',
   },
 } as const
@@ -108,6 +106,7 @@ export function MoneyPage({ data }: { data: AppData }) {
   const [categoryMessage, setCategoryMessage] = useState('')
   const [deleting, setDeleting] = useState<Transaction | undefined>()
   const [rangeKey, setRangeKey] = useState<MoneyRangeKey>('today')
+  const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()))
   const [editingCategories, setEditingCategories] = useState(false)
   const [speechSupported] = useState(() => 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
   const language = getLanguage(data)
@@ -121,36 +120,36 @@ export function MoneyPage({ data }: { data: AppData }) {
 
   const stats = useMemo(() => {
     const range = getRange(rangeKey)
-    const filtered = data.transactions.filter((item) => isWithinInterval(parseISO(item.occurredAt), range))
-    const income = sum(filtered, 'income')
-    const expense = sum(filtered, 'expense')
-    const byCurrency = currencies.map((currency) => {
-      const items = filtered.filter((item) => item.currency === currency.value)
-      return {
-        currency: currency.value,
-        income: sum(items, 'income'),
-        expense: sum(items, 'expense'),
-      }
-    }).filter((item) => item.income || item.expense)
+    const filtered = data.transactions.filter((item) => item.direction === 'expense' && isWithinInterval(parseISO(item.occurredAt), range))
+    const expense = sum(filtered)
     const categoryUniverse = [...new Set([...categoryOptions, ...filtered.map((item) => item.category)])]
     const categoryItems = categoryUniverse.map((category, index) => ({
       category,
       color: pieColors[index % pieColors.length],
-      amount: filtered.filter((item) => item.direction === 'expense' && item.category === category).reduce((total, item) => total + item.amountCents, 0),
+      amount: filtered.filter((item) => item.category === category).reduce((total, item) => total + item.amountCents, 0),
     })).filter((item) => item.amount > 0)
     return {
       filtered,
-      income,
       expense,
-      byCurrency,
       categoryItems,
       categoryTotal: categoryItems.reduce((total, item) => total + item.amount, 0),
     }
   }, [categoryOptions, data.transactions, rangeKey])
 
+  const dailyStats = useMemo(() => {
+    const range = { start: startOfDay(selectedDate), end: endOfDay(selectedDate) }
+    const filtered = data.transactions.filter((item) => item.direction === 'expense' && isWithinInterval(parseISO(item.occurredAt), range))
+    const byCurrency = currencies.map((currency) => {
+      const items = filtered.filter((item) => item.currency === currency.value)
+      return { currency: currency.value, expense: sum(items) }
+    }).filter((item) => item.expense)
+    return { filtered, byCurrency, total: sum(filtered) }
+  }, [data.transactions, selectedDate])
+
   async function saveVoice() {
     if (!voiceText.trim()) return
-    await db.transactions.add(makeTransactionDraft(voiceText))
+    const draft = makeTransactionDraft(voiceText)
+    await db.transactions.add({ ...draft, direction: 'expense' })
     setVoiceText('')
     await data.reload()
   }
@@ -194,10 +193,8 @@ export function MoneyPage({ data }: { data: AppData }) {
           </button>
         ))}
       </div>
-      <section className="metric-grid">
-        <div className="metric"><span>{t.rangeLabel[rangeKey]}{t.income}</span><strong>{formatMoney(stats.income)}</strong></div>
+      <section className="metric-grid single">
         <div className="metric"><span>{t.rangeLabel[rangeKey]}{t.expense}</span><strong>{formatMoney(stats.expense)}</strong></div>
-        <div className="metric"><span>{t.rangeLabel[rangeKey]}{t.balance}</span><strong>{formatMoney(stats.income - stats.expense)}</strong></div>
       </section>
       <section className="panel">
         <div className="panel-title">
@@ -246,30 +243,36 @@ export function MoneyPage({ data }: { data: AppData }) {
         <label className="field"><span>{t.textOrDictation}</span><input value={voiceText} onChange={(event) => setVoiceText(event.target.value)} placeholder={t.voicePlaceholder} /></label>
         <button className="button primary" type="button" onClick={() => void saveVoice()}>{t.generate}</button>
       </section>
-      <details className="panel compact-list" open>
-        <summary>{t.rangeLabel[rangeKey]}{t.transactions}</summary>
+      <section className="panel compact-list">
+        <div className="day-switcher">
+          <button className="icon-button" type="button" aria-label="Previous day" onClick={() => setSelectedDate((date) => addDays(date, -1))}><ChevronLeft /></button>
+          <div>
+            <h2>{t.dailyExpense}</h2>
+            <strong>{formatDay(selectedDate, language)}</strong>
+          </div>
+          <button className="icon-button" type="button" aria-label="Next day" onClick={() => setSelectedDate((date) => addDays(date, 1))}><ChevronRight /></button>
+        </div>
+        <button className="button ghost full-width day-today" type="button" onClick={() => setSelectedDate(startOfDay(new Date()))}>{t.today}</button>
         <div className="daily-summary">
           <strong>{t.summary}</strong>
-          {stats.byCurrency.length ? stats.byCurrency.map((item) => (
+          {dailyStats.byCurrency.length ? dailyStats.byCurrency.map((item) => (
             <p key={item.currency}>
               <span>{item.currency}</span>
-              <b>{t.income} {formatMoney(item.income, item.currency)}</b>
               <b>{t.expense} {formatMoney(item.expense, item.currency)}</b>
-              <b>{t.balance} {formatMoney(item.income - item.expense, item.currency)}</b>
             </p>
           )) : <p><span>{t.noTransactions}</span></p>}
         </div>
-        {stats.filtered.length ? stats.filtered.map((item) => (
-          <article className="list-row" key={item.id}>
+        {dailyStats.filtered.length ? dailyStats.filtered.map((item) => (
+          <article className="list-row money-row" key={item.id}>
             <div><strong>{item.note || item.category}</strong><span>{new Date(item.occurredAt).toLocaleString()} · {item.category} · {item.currency}</span></div>
-            <b className={item.direction}>{item.direction === 'income' ? '+' : '-'}{formatMoney(item.amountCents, item.currency)}</b>
+            <b className="expense">-{formatMoney(item.amountCents, item.currency)}</b>
             <button className="button ghost" type="button" onClick={() => setEditing(item)}>{common.edit}</button>
             <button className="button ghost danger-text" type="button" onClick={() => setDeleting(item)}>{common.delete}</button>
           </article>
         )) : <p className="empty">{t.noDetails}</p>}
-      </details>
+      </section>
       {quickCategory && <QuickExpense category={quickCategory} language={language} onClose={() => setQuickCategory(undefined)} onDone={data.reload} />}
-      {editing && <MoneyEditor item={editing} categories={categoryOptions} language={language} onClose={() => setEditing(undefined)} onDone={data.reload} />}
+      {editing && <MoneyEditor item={{ ...editing, direction: 'expense' }} categories={categoryOptions} language={language} onClose={() => setEditing(undefined)} onDone={data.reload} />}
       <ConfirmDialog
         open={Boolean(deleting)}
         title={t.deleteTitle}
@@ -295,8 +298,8 @@ function getRange(key: MoneyRangeKey) {
   return { start: startOfDay(now), end: endOfDay(now) }
 }
 
-function sum(items: Transaction[], direction: Transaction['direction']) {
-  return items.filter((item) => item.direction === direction).reduce((total, item) => total + item.amountCents, 0)
+function sum(items: Transaction[]) {
+  return items.reduce((total, item) => total + item.amountCents, 0)
 }
 
 function newTransaction(category = '吃饭', currency = 'SGD'): Transaction {
@@ -310,6 +313,10 @@ function currencySymbol(currency: string) {
 
 function formatMoney(cents: number, currency = 'SGD') {
   return `${currencySymbol(currency)}${(cents / 100).toFixed(2)}`
+}
+
+function formatDay(date: Date, language: 'zh' | 'en') {
+  return format(date, language === 'zh' ? 'yyyy年M月d日' : 'MMM d, yyyy')
 }
 
 function pieBackground(items: Array<{ amount: number; color: string }>, total: number): CSSProperties['background'] {
@@ -353,14 +360,13 @@ function MoneyEditor({ item, categories, language, onClose, onDone }: { item: Tr
   const categoryOptions = categories.includes(form.category) ? categories : [...categories, form.category]
   async function submit(event: FormEvent) {
     event.preventDefault()
-    await db.transactions.put({ ...form, amountCents: Math.round(form.amountCents), updatedAt: new Date().toISOString() })
+    await db.transactions.put({ ...form, direction: 'expense', amountCents: Math.round(form.amountCents), updatedAt: new Date().toISOString() })
     await onDone()
     onClose()
   }
   return (
     <div className="sheet"><form className="sheet-content" onSubmit={(event) => void submit(event)}>
       <h2>{t.account}</h2>
-      <label className="field"><span>{t.type}</span><select value={form.direction} onChange={(event) => setForm({ ...form, direction: event.target.value as Transaction['direction'] })}><option value="expense">{t.expense}</option><option value="income">{t.income}</option></select></label>
       <CurrencyPicker value={form.currency as CurrencyCode} language={language} onChange={(currency) => setForm({ ...form, currency })} />
       <label className="field"><span>{t.amount}</span><input required inputMode="decimal" value={(form.amountCents / 100).toString()} onChange={(event) => setForm({ ...form, amountCents: Math.round(Number(event.target.value || 0) * 100) })} /></label>
       <label className="field"><span>{t.category}</span><select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{categoryOptions.map((category) => <option key={category}>{category}</option>)}</select></label>

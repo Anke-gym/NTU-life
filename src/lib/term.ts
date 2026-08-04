@@ -23,13 +23,13 @@ export const AY26_T1: AcademicTerm = {
 }
 
 export const weekdays: Array<{ value: Weekday; label: string; short: string }> = [
-  { value: 1, label: '星期一', short: '一' },
-  { value: 2, label: '星期二', short: '二' },
-  { value: 3, label: '星期三', short: '三' },
-  { value: 4, label: '星期四', short: '四' },
-  { value: 5, label: '星期五', short: '五' },
-  { value: 6, label: '星期六', short: '六' },
-  { value: 7, label: '星期日', short: '日' },
+  { value: 1, label: '星期一', short: '周一' },
+  { value: 2, label: '星期二', short: '周二' },
+  { value: 3, label: '星期三', short: '周三' },
+  { value: 4, label: '星期四', short: '周四' },
+  { value: 5, label: '星期五', short: '周五' },
+  { value: 6, label: '星期六', short: '周六' },
+  { value: 7, label: '星期日', short: '周日' },
 ]
 
 export function getCurrentWeek(term: AcademicTerm, now = new Date()): number {
@@ -72,6 +72,10 @@ export function expandRules(
       })
     })
   return occurrences.sort((a, b) => (a.startAt ?? '').localeCompare(b.startAt ?? ''))
+}
+
+export function expandAllRules(term: AcademicTerm, courses: Course[], rules: ScheduleRule[]): CourseOccurrence[] {
+  return term.weekPeriods.flatMap((period) => expandRules(term, courses, rules, period.weekNumber))
 }
 
 export function onlineTasks(courses: Course[], rules: ScheduleRule[], week: number) {

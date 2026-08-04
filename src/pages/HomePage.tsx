@@ -5,7 +5,7 @@ import { CourseCard } from '../components/CourseCard'
 import { db } from '../lib/db'
 import { commonCopy, getLanguage } from '../lib/i18n'
 import { expandAllRules, expandRules, getCurrentWeek, onlineTasks, weekPeriod } from '../lib/term'
-import type { AcademicTerm, CourseOccurrence } from '../lib/types'
+import type { AcademicTerm, CourseOccurrence, Transaction } from '../lib/types'
 import type { AppData } from '../lib/useData'
 
 const copy = {
@@ -15,18 +15,19 @@ const copy = {
     missingStudentNumber: '点击填写学号',
     todayCourses: '今天的课程',
     noTodayCourses: '今天暂无已导入课程。',
+    todayAgenda: '今日待办',
     onlineTasks: '本周 Online Video',
     noOnlineTasks: '本周没有在线学习任务。',
     nextCourse: '下一节课',
     none: '暂无',
     todayExpense: '今日支出',
+    noExpense: '暂无支出',
     profileTitle: '个人信息',
     name: '姓名',
     namePlaceholder: '输入姓名',
     studentNumber: '学号',
     studentNumberPlaceholder: '输入学号',
     to: '至',
-    week: (week: number) => `第 ${week} 周`,
   },
   en: {
     profile: 'Profile',
@@ -34,20 +35,26 @@ const copy = {
     missingStudentNumber: 'Tap to add student number',
     todayCourses: "Today's Courses",
     noTodayCourses: 'No imported courses today.',
+    todayAgenda: "Today's Agenda",
     onlineTasks: 'This Week Online Video',
     noOnlineTasks: 'No online learning tasks this week.',
     nextCourse: 'Next Class',
     none: 'None',
     todayExpense: "Today's Expense",
+    noExpense: 'No expenses',
     profileTitle: 'Profile',
     name: 'Name',
     namePlaceholder: 'Enter name',
     studentNumber: 'Student Number',
     studentNumberPlaceholder: 'Enter student number',
     to: 'to',
-    week: (week: number) => `Week ${week}`,
   },
 } as const
+
+const currencies = [
+  { value: 'CNY', symbol: '¥' },
+  { value: 'SGD', symbol: 'S$' },
+] as const
 
 export function HomePage({
   data,
@@ -67,12 +74,13 @@ export function HomePage({
   const currentWeek = getCurrentWeek(term)
   const occurrences = expandRules(term, data.courses, data.rules, currentWeek)
   const todayCourses = occurrences.filter((item) => isToday(parseISO(item.date))).slice(0, 3)
+  const todayAgenda = data.agendaItems
+    .filter((item) => !item.completed && isToday(parseISO(item.startAt)))
+    .slice(0, 4)
   const tasks = onlineTasks(data.courses, data.rules, currentWeek)
   const period = weekPeriod(term, week)
   const todayRange = { start: startOfDay(new Date()), end: endOfDay(new Date()) }
-  const todayExpense = data.transactions
-    .filter((item) => item.direction === 'expense' && isWithinInterval(parseISO(item.occurredAt), todayRange))
-    .reduce((sum, item) => sum + item.amountCents, 0)
+  const todayExpenses = data.transactions.filter((item) => item.direction === 'expense' && isWithinInterval(parseISO(item.occurredAt), todayRange))
   const nextCourse = useMemo(() => findNextCourse(term, data), [data, term])
 
   return (
@@ -95,13 +103,24 @@ export function HomePage({
         <h2>{t.todayCourses}</h2>
         {todayCourses.length ? todayCourses.map((item) => <CourseCard key={item.id} occurrence={item} language={language} />) : <p className="empty">{t.noTodayCourses}</p>}
       </section>
+      {todayAgenda.length > 0 && (
+        <section className="panel">
+          <h2>{t.todayAgenda}</h2>
+          {todayAgenda.map((item) => (
+            <p className="task-line" key={item.id}>
+              <strong>{item.title}</strong>
+              <span>{new Date(item.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </p>
+          ))}
+        </section>
+      )}
       <section className="panel">
         <h2>{t.onlineTasks}</h2>
         {tasks.length ? tasks.map((item) => <p className={`task-line ${item.rule.completed ? 'done' : ''}`} key={item.rule.id}>{item.course?.code} · {item.rule.sourceText}</p>) : <p className="empty">{t.noOnlineTasks}</p>}
       </section>
       <section className="metric-grid">
-        <div className="metric"><span>{t.nextCourse}</span><strong>{nextCourse ? formatNextCourse(nextCourse, term, language) : t.none}</strong></div>
-        <div className="metric"><span>{t.todayExpense}</span><strong>{formatMoney(todayExpense)}</strong></div>
+        <div className="metric"><span>{t.nextCourse}</span><strong>{nextCourse ? formatNextCourse(nextCourse, language) : t.none}</strong></div>
+        <div className="metric"><span>{t.todayExpense}</span><strong>{formatCurrencyTotals(todayExpenses) || t.noExpense}</strong></div>
       </section>
       {editingProfile && <ProfileEditor data={data} language={language} onClose={() => setEditingProfile(false)} />}
     </div>
@@ -113,15 +132,21 @@ function findNextCourse(term: AcademicTerm, data: AppData) {
   return expandAllRules(term, data.courses, data.rules).find((item) => item.startAt && parseISO(item.startAt) > now)
 }
 
-function formatNextCourse(occurrence: CourseOccurrence, term: AcademicTerm, language: 'zh' | 'en') {
+function formatNextCourse(occurrence: CourseOccurrence, language: 'zh' | 'en') {
   const common = commonCopy[language]
-  const t = copy[language]
-  const week = term.weekPeriods.find((item) => occurrence.date >= item.startDate && occurrence.date <= item.endDate)?.weekNumber ?? 1
-  return `${t.week(week)} ${common.weekdays[occurrence.weekday - 1].short} · ${occurrence.course.title} · ${occurrence.rule.startTime}-${occurrence.rule.endTime}`
+  const date = parseISO(occurrence.date)
+  const dateText = format(date, language === 'zh' ? 'M月d日' : 'MMM d')
+  return `${dateText} ${common.weekdays[occurrence.weekday - 1].short} · ${occurrence.course.title} · ${occurrence.rule.startTime}-${occurrence.rule.endTime}`
 }
 
-function formatMoney(cents: number) {
-  return `S$${(cents / 100).toFixed(2)}`
+function formatCurrencyTotals(items: Transaction[]) {
+  return currencies
+    .map((currency) => {
+      const cents = items.filter((item) => item.currency === currency.value).reduce((total, item) => total + item.amountCents, 0)
+      return cents ? `${currency.symbol}${(cents / 100).toFixed(2)}` : ''
+    })
+    .filter(Boolean)
+    .join(' / ')
 }
 
 function ProfileEditor({ data, language, onClose }: { data: AppData; language: 'zh' | 'en'; onClose: () => void }) {

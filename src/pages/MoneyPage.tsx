@@ -121,7 +121,6 @@ export function MoneyPage({ data }: { data: AppData }) {
   const stats = useMemo(() => {
     const range = getRange(rangeKey)
     const filtered = data.transactions.filter((item) => item.direction === 'expense' && isWithinInterval(parseISO(item.occurredAt), range))
-    const expense = sum(filtered)
     const categoryUniverse = [...new Set([...categoryOptions, ...filtered.map((item) => item.category)])]
     const categoryItems = categoryUniverse.map((category, index) => ({
       category,
@@ -130,7 +129,7 @@ export function MoneyPage({ data }: { data: AppData }) {
     })).filter((item) => item.amount > 0)
     return {
       filtered,
-      expense,
+      byCurrency: totalsByCurrency(filtered),
       categoryItems,
       categoryTotal: categoryItems.reduce((total, item) => total + item.amount, 0),
     }
@@ -139,11 +138,7 @@ export function MoneyPage({ data }: { data: AppData }) {
   const dailyStats = useMemo(() => {
     const range = { start: startOfDay(selectedDate), end: endOfDay(selectedDate) }
     const filtered = data.transactions.filter((item) => item.direction === 'expense' && isWithinInterval(parseISO(item.occurredAt), range))
-    const byCurrency = currencies.map((currency) => {
-      const items = filtered.filter((item) => item.currency === currency.value)
-      return { currency: currency.value, expense: sum(items) }
-    }).filter((item) => item.expense)
-    return { filtered, byCurrency, total: sum(filtered) }
+    return { filtered, byCurrency: totalsByCurrency(filtered) }
   }, [data.transactions, selectedDate])
 
   async function saveVoice() {
@@ -194,7 +189,10 @@ export function MoneyPage({ data }: { data: AppData }) {
         ))}
       </div>
       <section className="metric-grid single">
-        <div className="metric"><span>{t.rangeLabel[rangeKey]}{t.expense}</span><strong>{formatMoney(stats.expense)}</strong></div>
+        <div className="metric">
+          <span>{t.rangeLabel[rangeKey]}{t.expense}</span>
+          <strong>{formatCurrencyTotals(stats.byCurrency) || t.noTransactions}</strong>
+        </div>
       </section>
       <section className="panel">
         <div className="panel-title">
@@ -258,7 +256,7 @@ export function MoneyPage({ data }: { data: AppData }) {
           {dailyStats.byCurrency.length ? dailyStats.byCurrency.map((item) => (
             <p key={item.currency}>
               <span>{item.currency}</span>
-              <b>{t.expense} {formatMoney(item.expense, item.currency)}</b>
+              <b>{t.expense} {formatMoney(item.amount, item.currency)}</b>
             </p>
           )) : <p><span>{t.noTransactions}</span></p>}
         </div>
@@ -298,8 +296,11 @@ function getRange(key: MoneyRangeKey) {
   return { start: startOfDay(now), end: endOfDay(now) }
 }
 
-function sum(items: Transaction[]) {
-  return items.reduce((total, item) => total + item.amountCents, 0)
+function totalsByCurrency(items: Transaction[]) {
+  return currencies.map((currency) => ({
+    currency: currency.value,
+    amount: items.filter((item) => item.currency === currency.value).reduce((total, item) => total + item.amountCents, 0),
+  })).filter((item) => item.amount > 0)
 }
 
 function newTransaction(category = '吃饭', currency = 'SGD'): Transaction {
@@ -313,6 +314,10 @@ function currencySymbol(currency: string) {
 
 function formatMoney(cents: number, currency = 'SGD') {
   return `${currencySymbol(currency)}${(cents / 100).toFixed(2)}`
+}
+
+function formatCurrencyTotals(totals: Array<{ currency: string; amount: number }>) {
+  return totals.map((item) => formatMoney(item.amount, item.currency)).join(' / ')
 }
 
 function formatDay(date: Date, language: 'zh' | 'en') {

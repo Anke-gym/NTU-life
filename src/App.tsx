@@ -16,6 +16,7 @@ const shellCopy = {
     loading: '正在准备本地数据...',
     offline: '离线模式：已缓存的课表、账目和日程仍可使用。',
     update: '新版本可用，保存当前编辑后可立即更新。',
+    updateFallback: '本次更新包含功能优化和体验改进。',
     updateNow: '立即更新',
     nav: '主要导航',
     tabs: ['首页', '课表', '记账', '日程', '设置'],
@@ -24,6 +25,7 @@ const shellCopy = {
     loading: 'Preparing local data...',
     offline: 'Offline mode: cached schedules, transactions, and agenda remain available.',
     update: 'A new version is available. Save your current edits, then update.',
+    updateFallback: 'This update includes feature and usability improvements.',
     updateNow: 'Update now',
     nav: 'Main navigation',
     tabs: ['Home', 'Schedule', 'Money', 'Agenda', 'Settings'],
@@ -45,6 +47,7 @@ function AppShell() {
   const [week, setWeek] = useState(1)
   const [offline, setOffline] = useState(!navigator.onLine)
   const [updateReady, setUpdateReady] = useState(false)
+  const [updateSummary, setUpdateSummary] = useState('')
   const language = getLanguage(data)
   const t = shellCopy[language]
   const tabs = useMemo(() => tabDefs.map((tab, index) => ({ ...tab, label: t.tabs[index] })), [t])
@@ -72,7 +75,10 @@ function AppShell() {
   useEffect(() => {
     const onOnline = () => setOffline(false)
     const onOffline = () => setOffline(true)
-    const onUpdateReady = () => setUpdateReady(true)
+    const onUpdateReady = () => {
+      setUpdateReady(true)
+      void loadUpdateSummary(language).then(setUpdateSummary)
+    }
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
     window.addEventListener('ntu-life-update-ready', onUpdateReady)
@@ -81,7 +87,7 @@ function AppShell() {
       window.removeEventListener('offline', onOffline)
       window.removeEventListener('ntu-life-update-ready', onUpdateReady)
     }
-  }, [])
+  }, [language])
 
   async function applyUpdate() {
     if (window.__NTU_LIFE_UPDATE_SW__) {
@@ -98,6 +104,7 @@ function AppShell() {
       {(offline || updateReady) && (
         <div className="system-banner" role="status">
           <span>{offline ? t.offline : t.update}</span>
+          {updateReady && !offline && <small className="banner-summary">{updateSummary || t.updateFallback}</small>}
           {updateReady && !offline && <button className="banner-action" type="button" onClick={() => void applyUpdate()}>{t.updateNow}</button>}
         </div>
       )}
@@ -123,6 +130,17 @@ function AppShell() {
       </nav>
     </div>
   )
+}
+
+async function loadUpdateSummary(language: 'zh' | 'en') {
+  try {
+    const response = await fetch(`${import.meta.env.BASE_URL}release-notes.json?t=${Date.now()}`, { cache: 'no-store' })
+    if (!response.ok) return ''
+    const notes = await response.json() as Partial<Record<'zh' | 'en', string>>
+    return notes[language] ?? ''
+  } catch {
+    return ''
+  }
 }
 
 export default function App() {

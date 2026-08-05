@@ -268,15 +268,35 @@ h3 { font-size: 17px; }
   align-content: center;
   gap: 1px;
   line-height: 1.1;
+  position: relative;
 }
 .calendar-header .day-heading span,
-.calendar-header .day-heading small {
+.calendar-header .day-heading small,
+.calendar-header .day-heading em {
   display: block;
 }
 .calendar-header .day-heading small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
+}
+.calendar-header .day-heading em {
+  margin-top: 2px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--blue);
+  color: white;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+}
+.calendar-header .day-heading.today {
+  background: rgba(0, 122, 255, 0.14);
+  color: var(--blue);
+  box-shadow: inset 0 -3px 0 var(--blue);
+}
+.calendar-header .day-heading.today small {
+  color: var(--blue);
 }
 .calendar-grid {
   position: relative;

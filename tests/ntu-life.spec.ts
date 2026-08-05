@@ -7,6 +7,8 @@ test('mobile core flow', async ({ page }) => {
 
   await page.getByRole('link', { name: /课表/ }).click()
   await expect(page.locator('.week-pills').getByRole('button', { name: '第 1 周' })).toHaveClass(/active/)
+  await expect(page.locator('.day-heading.today')).toHaveAttribute('aria-current', 'date')
+  await expect(page.locator('.day-heading.today')).toContainText('今天')
   await page.getByRole('button', { name: '载入示例' }).click()
   await page.getByRole('button', { name: '确认导入' }).click()
   await expect(page.getByRole('button', { name: /CA6000/ }).first()).toBeVisible()
@@ -59,7 +61,8 @@ test('mobile core flow', async ({ page }) => {
   await expect(page.getByText('交作业')).toBeVisible()
 
   await page.getByRole('link', { name: /首页/ }).click()
-  await expect(page.getByText(/Applied AI Programming/)).toBeVisible()
+  await expect(page.locator('.metric').first().locator('strong')).toContainText(/8月\d+日/)
+  await expect(page.locator('.metric').first().locator('strong')).toContainText(/20:00-22:00/)
   await expect(page.getByText('今日待办')).toBeVisible()
   await expect(page.getByText('交作业')).toBeVisible()
   await expect(page.getByText('今日支出')).toBeVisible()

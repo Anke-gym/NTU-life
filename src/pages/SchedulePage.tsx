@@ -43,6 +43,7 @@ const copy = {
     closeImport: '关闭',
     to: '至',
     noteBadge: '备注',
+    today: '今天',
   },
   en: {
     title: 'Schedule',
@@ -73,6 +74,7 @@ const copy = {
     closeImport: 'Close',
     to: 'to',
     noteBadge: 'Note',
+    today: 'Today',
   },
 } as const
 
@@ -97,6 +99,7 @@ export function SchedulePage({
   const tasks = onlineTasks(data.courses, data.rules, week)
   const period = weekPeriod(term, week)
   const halfHourMarkers = uniqueHalfHourMarkers(occurrences)
+  const todayDate = formatLocalDate(new Date())
 
   async function toggleTask(rule: ScheduleRule) {
     await db.scheduleRules.put({ ...rule, completed: !rule.completed })
@@ -148,12 +151,17 @@ export function SchedulePage({
       <section className="calendar-board" aria-label={t.calendarLabel(week)}>
         <div className="calendar-header" style={{ gridTemplateColumns: '48px repeat(6, minmax(70px, 1fr))' }}>
           <span />
-          {weekdays.slice(0, 6).map((day, index) => (
-            <strong className="day-heading" key={day.value}>
-              <span>{common.weekdays[index].short}</span>
-              <small>{formatHeaderDate(dateForWeekday(term, week, day.value))}</small>
-            </strong>
-          ))}
+          {weekdays.slice(0, 6).map((day, index) => {
+            const date = dateForWeekday(term, week, day.value)
+            const isCurrentDay = date === todayDate
+            return (
+              <strong className={`day-heading ${isCurrentDay ? 'today' : ''}`} key={day.value} aria-current={isCurrentDay ? 'date' : undefined}>
+                <span>{common.weekdays[index].short}</span>
+                <small>{formatHeaderDate(date)}</small>
+                {isCurrentDay && <em>{t.today}</em>}
+              </strong>
+            )
+          })}
         </div>
         <div className="calendar-grid" style={{ height: `${timeLabels.length * rowHeight}px` }}>
           <div className="time-axis">
@@ -256,6 +264,13 @@ function formatMinute(minute: number) {
 function formatHeaderDate(date: string) {
   const [, month, day] = date.split('-')
   return `${month}/${day}`
+}
+
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function uniqueHalfHourMarkers(occurrences: CourseOccurrence[]) {
